@@ -48,7 +48,6 @@ See [CHANGELOG.md](CHANGELOG.md) for the full history.
 - **Omega Ascendant Team (Omega Dias)**: the continuation of both mods.
 - **DramaticShape**: the MIT-licensed DramaticShapeVoxelMod foundation.
 - **Cedric / UNDERdecoded**: the Gen2Recomp engine.
-- **bryanthaboi and the Pokémon Gen 1 Recompilation Project contributors**: the original engine and mod API.
 - **randyadr**: Gen2-3D-Sprites, the origin of the Stadium importer modules.
 - **pret** contributors: the pokered disassembly the maps are built from.
 
