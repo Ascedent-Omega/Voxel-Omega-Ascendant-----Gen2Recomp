@@ -1,0 +1,1109 @@
+-- Runtime binding for the approved transparent 4x3 character atlases.
+--
+-- The native engine consumes a six-frame 16x96 strip. Each replacement def
+-- therefore points at a generated native fallback and also carries the full
+-- 4x3 atlas as metadata for VASC. No shared game definition is mutated: live
+-- renderers are replaced locally and their exact originals are restorable.
+
+local WalkingSprites = {}
+WalkingSprites.__index = WalkingSprites
+
+-- Optional public art-source seam; this binder retains entity ownership.
+local function externalSource(self)
+ local handle=self.mod.find and self.mod:find('ASCENDANT_COBBLE_CHARACTERS')
+ local source=handle and handle.exports and handle.exports.characterArtSource or self.mod.characterArtSource
+ return source and source.schema=='ascendant.character-art-source/v1'and source or nil
+end
+
+
+WalkingSprites.SCHEMA = "ascendant.walking-sprite-replacements/v1"
+
+-- Character providers such as KASC publish their selected native renderer on
+-- the ordinary lifecycle events.  Bind the VASC presentation afterwards so
+-- their identity remains authoritative while our animated card remains the
+-- final visible renderer.
+local PRESENTATION_PRIORITY = -1000
+local function wardrobe()
+  local game=require('src.core.Game')
+  local exports=game.mods and game.mods.exports
+  return exports and ((exports.kanto_ascendant and exports.kanto_ascendant.wardrobe)
+    or(exports.VOXEL_ASCENDANT and exports.VOXEL_ASCENDANT.wardrobe))
+end
+
+local unpackValues = table.unpack or unpack
+local function packValues(...)
+  return { n=select("#", ...), ... }
+end
+
+-- Explicitly rejected/not-yet-approved artwork never replaces the cartridge
+-- sprite.  Keeping the files outside runtime selection makes rollback exact
+-- while a corrected sheet is prepared.
+local REJECTED_ATLASES = {
+  ["assets/characters/npcs/youngster-kasc-hd-4x3-walk-sheet-v1.png"] = true,
+}
+
+-- These approved Gen-1 palettes have deliberate filename suffixes that do
+-- not follow the generic KASC naming rule below. Preserve their semantic
+-- youth roles for sizing without changing artwork or aliasing the ambiguous
+-- cartridge SPRITE_YOUNGSTER constant to either trainer class.
+local EXACT_YOUTH_ROLES = {
+  ["assets/characters/npcs/youngster-gen1-bald-hd-4x3-walk-sheet-v1.png"] = "youngster",
+  ["assets/characters/npcs/youngster-gen1-bald-hd-4x3-walk-sheet-v1-bald-green.png"] = "youngster",
+  ["assets/characters/npcs/youngster-gen1-bald-hd-4x3-walk-sheet-v1-bald-red.png"] = "youngster",
+  ["assets/characters/npcs/bug-catcher-gen1-kasc-hd-4x3-walk-sheet-v1-bug-teal.png"] = "bug-catcher",
+  ["assets/characters/npcs/bug-catcher-gen1-kasc-hd-4x3-walk-sheet-v1-bug-navy.png"] = "bug-catcher",
+}
+
+local function split(line, separator)
+  local result = {}
+  for value in (line .. separator):gmatch("(.-)" .. separator) do
+    result[#result + 1] = value
+  end
+  return result
+end
+
+local function normalize(value)
+  return tostring(value or ""):upper():gsub("[^A-Z0-9]", "")
+end
+
+local function clone(source)
+  local result = {}
+  for key, value in pairs(source or {}) do result[key] = value end
+  return result
+end
+
+local function invoke(owner, name, ...)
+  local fn = type(owner) == "table" and owner[name]
+  if type(fn) ~= "function" then return nil end
+  local ok, value = pcall(fn, ...)
+  if not ok or value == nil then ok, value = pcall(fn, owner, ...) end
+  return ok and value or nil
+end
+
+local function option(mod, key, fallback)
+  local options = mod and mod.options
+  if not (options and type(options.get) == "function") then return fallback end
+  local ok, value = pcall(options.get, options, key)
+  if not ok or value == nil then return fallback end
+  return value == true
+end
+
+local function roleFromPath(path)
+  if EXACT_YOUTH_ROLES[path] then return EXACT_YOUTH_ROLES[path] end
+  local stem = tostring(path or ""):match("([^/]+)%.png$") or "actor"
+  stem = stem:gsub("[_%-]cards[_%-]4x3$", "")
+    :gsub("%-variant%-.+$", "")
+    :gsub("%-kasc%-hd%-4x3%-walk%-sheet%-v%d+$", "")
+  if stem == "blue-johto-gym" then return "blue" end
+  if stem == "red-mt-silver" then return "red" end
+  return stem
+end
+
+local function scaleClass(role)
+  local child = {
+    red=true, green=true, blue=true, gold=true, kris=true, silver=true,
+    misty=true,
+    ["little-boy"]=true, ["little-girl"]=true, youngster=true, lass=true,
+    girl=true, ["brunette-girl"]=true,
+    ["jr-trainer-female"]=true, ["jr-trainer-male"]=true,
+    ["school-kid-male-gen2"]=true, ["school-kid-female-gen2"]=true,
+    ["bug-catcher"]=true,
+    ["camper-gen2"]=true, ["picnicker-gen2"]=true, ["twins-gen2"]=true,
+    ["game-boy-kid"]=true,
+  }
+  return child[role] and "human_child" or "human_adult"
+end
+
+local function identityRole(id, generation, kascActive)
+  local value = normalize(id)
+  if generation == 1 and value == "SPRITERED" then return "red" end
+  if value == "SPRITEBLUE" then return "blue" end
+  if value == "SPRITERIVAL" then return generation == 2 and "silver" or "blue" end
+  -- Gen 2's original male player constant is CHRIS.  KRIS is the Crystal
+  -- heroine; treating both as Kris caused JASC Gold/Kris to inherit Red.
+  if generation == 2 and value == "SPRITECHRIS" then return "gold" end
+  if generation == 2 and (value == "SPRITEKRIS"
+      or value:find("JASCKRIS", 1, true)) then return "kris" end
+  if generation == 2 and (value == "SPRITESILVER"
+      or value:find("JASCSILVER", 1, true)) then return "silver" end
+  if generation == 2 and (value == "SPRITEGOLD" or value == "SPRITEETHAN"
+      or value:find("JASCGOLD", 1, true) or value:find("JASCETHAN", 1, true)) then
+    return "gold"
+  end
+  if kascActive and (value == "SPRITEKAGREEN"
+      or value:find("SPRITEKACRYSTALGREENWALK", 1, true)) then
+    return "green"
+  end
+  if kascActive and value:find("SPRITEKACRYSTALBLUEWALK", 1, true) then
+    return "blue"
+  end
+  if kascActive and value:find("SPRITEKACRYSTALREDWALK", 1, true) then
+    return "red"
+  end
+  return nil
+end
+
+local function worldFor(game)
+  return game and (game.overworld or game.world) or nil
+end
+
+function WalkingSprites.new(options)
+  local self = setmetatable({
+    mod=assert(options.mod), generation=assert(options.generation),
+    compat=assert(options.compat), npcCatalog=assert(options.npcCatalog),
+    activeGame=nil, installed=false, applied=0, lastError=nil,
+    originals=setmetatable({}, { __mode="k" }),
+    runtimeByAtlas={}, rowsByMap={}, atlasByRole={}, atlasBySprite={},
+    variantsByBase={}, variantSprites={},
+    playerRole=nil,
+    characterActions=options.characterActions,
+    playerBridges=setmetatable({}, { __mode="k" }),
+    debugLog=options.debugLog,
+  }, WalkingSprites)
+  self:_loadRuntimeManifest()
+  self:_indexNpcRows()
+  self:_indexRoles()
+  return self
+end
+
+function WalkingSprites:_savedPlayerRole(game)
+  local save = game and game.save
+  local player = save and save.player
+  if self.generation ~= 2 or type(player) ~= "table" then return nil end
+  local key = tostring(player.characterKey or ""):lower()
+  local route = tostring(player.routeKey or ""):lower()
+  if key == "kris" or key == "crystal" then return "kris" end
+  if key == "gold" or key == "ethan" then return "gold" end
+  if key == "silver" then return "silver" end
+  if key == "johto.kris" or route == "jasc.crystal_path" then return "kris" end
+  if key == "johto.gold" or route == "jasc.gold_path" then return "gold" end
+  if key == "johto.silver" or route == "jasc.silver_path" then return "silver" end
+  local version = tostring(save.version or ""):lower()
+  local gender = tostring(player.gender or ""):lower()
+  if version == "crystal" and (gender == "female" or gender == "f") then
+    return "kris"
+  end
+  return nil
+end
+
+function WalkingSprites:_loadRuntimeManifest()
+  local body, err = self.mod:read("production/walking-sprite-runtime.tsv")
+  if type(body) ~= "string" then self.lastError = err or "runtime_manifest_missing" return end
+  local first = true
+  for line in body:gmatch("[^\r\n]+") do
+    if first then first = false else
+      local field = split(line, "\t")
+      local isPaletteVariant = field[1] and field[1]:find("%-variant%-") ~= nil
+      local rejected = self.generation == 1
+        and (REJECTED_ATLASES[field[1]] or isPaletteVariant)
+      if field[1] and field[2] and not rejected then
+        self.runtimeByAtlas[field[1]] = field[2]
+      end
+    end
+  end
+  local variantManifest = self.generation == 2
+    and "production/npc-palette-variants.tsv"
+    or "production/npc-palette-variants-gen1.tsv"
+  local variants = self.mod:read(variantManifest)
+  if type(variants) == "string" then
+    local header = true
+    for line in variants:gmatch("[^\r\n]+") do
+      if header then header = false else
+        local field = split(line, "\t")
+        if self.runtimeByAtlas[field[2]] then
+          self.variantsByBase[field[1]] = self.variantsByBase[field[1]] or {}
+          self.variantsByBase[field[1]][#self.variantsByBase[field[1]]+1] = field[2]
+        end
+      end
+    end
+  end
+end
+
+function WalkingSprites:_indexNpcRows()
+  local occurrences = {}
+  for _, row in ipairs(self.npcCatalog.inventory(self.generation) or {}) do
+    local map = normalize(row.map)
+    local occurrenceKey = map .. ":" .. normalize(row.sprite)
+    occurrences[occurrenceKey] = (occurrences[occurrenceKey] or 0) + 1
+    row.ascendantVariantIndex = occurrences[occurrenceKey]
+    self.rowsByMap[map] = self.rowsByMap[map] or {}
+    local key = table.concat({ normalize(row.sprite), tostring(row.x), tostring(row.y) }, ":")
+    self.rowsByMap[map][key] = self.rowsByMap[map][key] or {}
+    self.rowsByMap[map][key][#self.rowsByMap[map][key] + 1] = row
+    local sprite = normalize(row.sprite)
+    self.atlasBySprite[sprite] = self.atlasBySprite[sprite] or {}
+    local seen = {}
+    for _, current in ipairs(self.atlasBySprite[sprite]) do seen[current] = true end
+    for _, atlas in ipairs(row.assets or {}) do
+      if self.runtimeByAtlas[atlas] and not seen[atlas] then
+        self.atlasBySprite[sprite][#self.atlasBySprite[sprite] + 1] = atlas
+        seen[atlas] = true
+      end
+      for _, variant in ipairs(self.variantsByBase[atlas] or {}) do
+        if self.runtimeByAtlas[variant] and not seen[variant] then
+          self.atlasBySprite[sprite][#self.atlasBySprite[sprite] + 1] = variant
+          self.variantSprites[sprite] = true
+          seen[variant] = true
+        end
+      end
+    end
+  end
+  -- Both are approved lab-coated adults in the same visual language. This
+  -- provides stable KASC researcher variety without inventing a new identity.
+  local scientist = self.atlasBySprite.SPRITESCIENTIST
+  local pharmacist = "assets/characters/npcs/pharmacist-gen2-kasc-hd-4x3-walk-sheet-v1.png"
+  if scientist and self.runtimeByAtlas[pharmacist] then
+    local exists = false
+    for _, atlas in ipairs(scientist) do
+      if atlas == pharmacist then exists = true break end
+    end
+    if not exists and #scientist < 4 then scientist[#scientist + 1] = pharmacist end
+  end
+end
+
+function WalkingSprites:_indexRoles()
+  local preferred = {
+    red="assets/characters/red_cards_4x3.png",
+    green="assets/characters/green_cards_4x3.png",
+    blue="assets/characters/blue_cards_4x3.png",
+    gold="assets/characters/gold_cards_4x3.png",
+    kris="assets/characters/kris_cards_4x3.png",
+    silver="assets/characters/npcs/silver-kasc-hd-4x3-walk-sheet-v1.png",
+    oak="assets/characters/npcs/professor-oak-kasc-hd-4x3-walk-sheet-v1.png",
+  }
+  for role, atlas in pairs(preferred) do
+    if self.runtimeByAtlas[atlas] then self.atlasByRole[role] = atlas end
+  end
+end
+
+function WalkingSprites:enabled()
+  -- Gen 2 with the 3D VOXEL WORLD off keeps the cartridge's own people
+  -- sprites (OverworldPokemonCard answers "world3d"; Gen 1 always true).
+  if self.generation == 2 and not option(self.mod, "world3d", true) then return false end
+  return option(self.mod, "hd_walking_sprites", true)
+end
+
+function WalkingSprites:_kasc()
+  for _, source in ipairs(self.compat.characterSources() or {}) do
+    if source.kind == "kasc" then return source.provider end
+  end
+  return nil
+end
+
+-- The atlas replacement belongs to this mod, but the selected protagonist
+-- does not.  Keep that distinction explicit so a renderer refresh can never
+-- make APO look like the authority for KASC's Casey/Green (or JASC's Johto
+-- choice).  Consumers that care about the image can inspect the separate
+-- ascendantWalkingSpriteOwner field.
+function WalkingSprites:_playerIdentityOwner()
+  local wanted = self.generation == 2 and "jasc" or "kasc"
+  for _, source in ipairs(self.compat.characterSources() or {}) do
+    if source.kind == wanted then
+      return source.id or (wanted == "jasc"
+        and "johto_ascendant" or "kanto_ascendant")
+    end
+  end
+  return nil
+end
+
+function WalkingSprites:_visiblePlayerRole(player)
+  if type(player) ~= "table" then return nil end
+  local def = player.sprite and player.sprite.def or player.spriteDef or {}
+  local explicit = tostring(def.ascendantRole or ""):lower()
+  if self.atlasByRole[explicit] then return explicit end
+  local tagged = identityRole(player.ascendantCharacter,
+    self.generation, self:_kasc() ~= nil)
+  if self.atlasByRole[tagged] then return tagged end
+  local visible = identityRole(def.id or self:_identity(player),
+    self.generation, self:_kasc() ~= nil)
+  -- The cartridge defaults (Red and Chris/Gold) may still be visible before
+  -- KASC/JASC applies the user's selection.  Alternative hero identities are
+  -- unambiguous and must outrank a provider's transient default value.
+  if visible == "green" or visible == "blue" or visible == "kris" then
+    return visible
+  end
+  return nil
+end
+
+function WalkingSprites:_playerRole(refreshAuthority, player)
+  -- Movement ticks refresh the renderer, not the selected identity. JASC can
+  -- briefly report nil/a default while advancing the world; retaining the
+  -- role established by a load/map/selection event prevents Kris becoming
+  -- Gold immediately after the first step.
+  -- Red follows the same identity latch as every other hero. A provider's
+  -- temporary value during an NPC/world update must not select another hero.
+  if refreshAuthority == false and self.atlasByRole[self.playerRole] then
+    return self.playerRole
+  end
+  -- KASC's character.selected event is authoritative and its getter reads a
+  -- stable mod-save record.  It must outrank our currently visible renderer,
+  -- which may still be the Red replacement from before Casey/Green was
+  -- selected.  JASC is deliberately excluded: its transient default during
+  -- rebuilds is the original Kris->Ethan failure this latch protects against.
+  if self.generation == 1 and refreshAuthority == "kasc-event" then
+    for _, source in ipairs(self.compat.characterSources() or {}) do
+      if source.kind == "kasc" then
+        local role = tostring(invoke(source.provider,
+          "getPlayerCharacter") or ""):lower()
+        if self.atlasByRole[role] then
+          self.playerRole = role
+          if self.debugLog then
+            self.debugLog:role("kasc-event", role, self.activeGame, player)
+          end
+          return role
+        end
+      end
+    end
+  end
+  local visible = self:_visiblePlayerRole(player)
+  if visible then
+    self.playerRole = visible
+    if self.debugLog then self.debugLog:role("visible", visible, self.activeGame, player) end
+    return visible
+  end
+  local saved = self:_savedPlayerRole(self.activeGame)
+  if self.atlasByRole[saved] then
+    self.playerRole = saved
+    if self.debugLog then self.debugLog:role("save", saved, self.activeGame, player) end
+    return saved
+  end
+  local sources = self.compat.characterSources() or {}
+  local function from(kind)
+    for _, source in ipairs(sources) do
+      if source.kind == kind and kind == "kasc" then
+      local role = tostring(invoke(source.provider, "getPlayerCharacter") or ""):lower()
+      if self.atlasByRole[role] then return role end
+      elseif source.kind == kind and kind == "jasc" then
+      local role = tostring(invoke(source.provider, "current", self.activeGame) or ""):lower()
+      if role == "ethan" then role = "gold" end
+      if role == "crystal" then role = "kris" end
+      if self.atlasByRole[role] then return role end
+      end
+    end
+    return nil
+  end
+  -- KASC may also be loaded in a Gen 2 session, but it has no authority over
+  -- the Johto player.  JASC is authoritative there; KASC remains authoritative
+  -- in Gen 1.
+  -- Never cross generations here. A loaded JASC instance must not turn Red
+  -- into Kris in Gen 1, and a loaded KASC instance must not override the
+  -- selected Johto hero in Gen 2.
+  local role = self.generation == 2 and from("jasc") or from("kasc")
+  if role then
+    self.playerRole = role
+    if self.debugLog then self.debugLog:role("provider", role, self.activeGame, player) end
+    return role
+  end
+  if self.atlasByRole[self.playerRole] then return self.playerRole end
+  self.playerRole = self.generation == 2 and "gold" or "red"
+  return self.playerRole
+end
+
+function WalkingSprites:_identity(entity)
+  local def = entity and entity.def or {}
+  return def.sprite or entity and entity.spriteId
+    or entity and entity.sprite and entity.sprite.def and entity.sprite.def.id
+    or entity and entity.spriteDef and entity.spriteDef.id
+end
+
+function WalkingSprites:_rowFor(mapId, entity)
+  local def = entity and entity.def or {}
+  local sprite = self:_identity(entity)
+  local x = def.x
+  if x == nil then x = entity and (entity.cellX or entity.x) end
+  local y = def.y
+  if y == nil then y = entity and (entity.cellY or entity.y) end
+  local key = table.concat({ normalize(sprite), tostring(x), tostring(y) }, ":")
+  local candidates = self.rowsByMap[normalize(mapId)]
+  candidates = candidates and candidates[key] or nil
+  return candidates and candidates[1] or nil
+end
+
+local function stableIndex(value, count)
+  if count <= 1 then return 1 end
+  local hash = 0
+  for index = 1, #value do hash = (hash * 33 + value:byte(index)) % 65521 end
+  return (hash % count) + 1
+end
+
+function WalkingSprites:_atlasFor(mapId, entity, row)
+  local identity = self:_identity(entity)
+  local sprite = normalize(identity)
+  local choices = self.atlasBySprite[sprite] or {}
+  local atlas = row and row.assets and row.assets[1] or nil
+  if atlas then
+    -- A cartridge sprite constant can represent several trainer classes
+    -- (notably Gen 1 SPRITE_YOUNGSTER). Once the inventory identified the
+    -- concrete row, restrict selection to that class' base and variants.
+    -- Mixing the sprite-wide bucket here made Youngsters become Bug Catchers.
+    local rowChoices = {}
+    if self.runtimeByAtlas[atlas] then rowChoices[#rowChoices+1] = atlas end
+    for _, variant in ipairs(self.variantsByBase[atlas] or {}) do
+      if self.runtimeByAtlas[variant] then rowChoices[#rowChoices+1] = variant end
+    end
+    choices = rowChoices
+  elseif self.generation == 1 and sprite == "SPRITEYOUNGSTER" then
+    -- Without map coordinates/trainer class the shared Gen-1 constant is
+    -- ambiguous. Vanilla 2D is safer than assigning the wrong HD identity.
+    return nil
+  end
+  if #choices > 1 and (self.variantSprites[sprite]
+      or sprite == "SPRITESCIENTIST") then
+    -- Stable per-object selection gives recurring generic classes some visual
+    -- variety without flicker or more than the catalogued four candidates.
+    local seed = table.concat({ normalize(mapId), normalize(identity),
+      tostring(entity and entity.id or ""), tostring(entity and entity.cellX or ""),
+      tostring(entity and entity.cellY or "") }, ":")
+    local index = row and tonumber(row.ascendantVariantIndex)
+      or stableIndex(seed, math.min(#choices, 4))
+    atlas = choices[((index - 1) % math.min(#choices, 4)) + 1]
+  end
+  if atlas and self.runtimeByAtlas[atlas] then return atlas end
+  for _, candidate in ipairs(choices) do
+    if self.runtimeByAtlas[candidate] then return candidate end
+  end
+  return nil
+end
+
+-- KASC resolves the story role without rewriting the static map sprite.
+-- Use that live identity before consulting the generic NPC atlas catalog.
+function WalkingSprites:_npcVisual(mapId,entity,kascActive)
+  local external=externalSource(self)
+  local explicit=external and external.identity(entity)
+  if explicit then return 'external-character/'..explicit,explicit end
+  local variable=self:_variableSprite(mapId,entity)
+  if variable then return variable,roleFromPath(variable) end
+  local visitor="assets/characters/npcs/hoenn-visitor-kasc-hd-4x3-walk-sheet-v1.png"
+  if self.generation==1 and normalize(self:_identity(entity))=="SPRITEKAHOENNVISITOR"
+      and self.runtimeByAtlas[visitor] then return visitor,"hoenn-visitor" end
+  -- Mira owns her identity; never replace the shared female trainer sprite.
+  local mira="assets/characters/npcs/mira-kasc-hd-4x3-walk-sheet-v1.png"
+  if self.generation==1 and normalize(self:_identity(entity))=="SPRITEKAMIRAWALK"
+      and self.runtimeByAtlas[mira] then return mira,"mira" end
+  local selected=tostring(entity.ascendantCharacter or ""):lower()
+  if kascActive and (selected=="red" or selected=="blue" or selected=="green")
+      and self.atlasByRole[selected] then return self.atlasByRole[selected],selected end
+  local row=self:_rowFor(mapId,entity)
+  local atlas=self:_atlasFor(mapId,entity,row)
+  local role=atlas and roleFromPath(atlas)
+    or identityRole(self:_identity(entity),self.generation,kascActive)
+  -- The shared BIKER cartridge sprite also represents Cue Balls. Resolve
+  -- the catalogued identity first. Riders keep their bicycles on every
+  -- route in both generations; a Cue Ball using a swimmer sprite does not.
+  if normalize(self:_identity(entity))=="SPRITEBIKER"
+      and (role=="biker" or role=="cue-ball") then
+    local cycling="assets/characters/actions/"..role.."/bicycle_4x3.png"
+    if self.runtimeByAtlas[cycling] then return cycling,role,"bicycle" end
+  end
+  return atlas or self.atlasByRole[role],role
+end
+
+-- Gold wVariableSprites objects (Nuno 23 Oct: "trainers dentro do Fushia gym
+-- ainda nao tem modelos voxel", then "corrige tambem esses"). Such an object
+-- keeps a $f0+ slot byte in def.sprite, not a SPRITE_* name, so the catalog
+-- lookup by sprite name and cell never matched it and it kept the cartridge
+-- sheet. Resolve it from the sheet its slot holds right now (spriteDef.id):
+-- first a per-cell table for objects whose identity depends on the cell, then
+-- a small table by live sheet. Anything else (Sudowoodo) stays as it was.
+local NPC_SHEET="assets/characters/npcs/"
+local function sheet(stem) return NPC_SHEET..stem..".png" end
+local VAR_JANINE=sheet("janine-kasc-hd-4x3-walk-sheet-v1")
+local VARIABLE_CELLS={
+  -- Fuchsia Gym ninjas: Janine while disguised, own class once unmasked.
+  FUCHSIAGYM={
+    ["5:7"]={SPRITEJANINE=VAR_JANINE,["*"]=sheet("lass-kasc-hd-4x3-walk-sheet-v1")},                     -- Lass Alice
+    ["5:11"]={SPRITEJANINE=VAR_JANINE,["*"]=sheet("lass-kasc-hd-4x3-walk-sheet-v1-variant-black-blue")}, -- Lass Linda
+    ["9:4"]={SPRITEJANINE=VAR_JANINE,["*"]=sheet("picnicker-gen2-kasc-hd-4x3-walk-sheet-v1")},           -- Picnicker Cindy
+    ["4:2"]={SPRITEJANINE=VAR_JANINE,["*"]=sheet("camper-gen2-kasc-hd-4x3-walk-sheet-v1")},              -- Camper Barry
+  },
+  -- The Janine impersonator: her own lass look, Janine while disguised.
+  FUCHSIAPOKECENTER1F={
+    ["5:3"]={SPRITEJANINE=VAR_JANINE,SPRITELASS=sheet("lass-kasc-hd-4x3-walk-sheet-v1-variant-blond-green")},
+  },
+  -- Copycat: her own sheet, or the player's hero while she copies them.
+  COPYCATSHOUSE2F={
+    ["4:3"]={SPRITELASS=sheet("copycat-kasc-hd-4x3-walk-sheet-v1"),SPRITECHRIS="role:gold",SPRITEKRIS="role:kris"},
+  },
+  -- Twins Ann & Anne share the WEIRD_TREE slot with Sudowoodo.
+  ROUTE37={
+    ["6:12"]={SPRITETWIN=sheet("twins-gen2-kasc-hd-4x3-walk-sheet-v1")},
+    ["7:12"]={SPRITETWIN=sheet("twins-gen2-kasc-hd-4x3-walk-sheet-v1-variant-auburn-teal")},
+  },
+}
+-- Same sheet wherever the slot shows it (Olivine and Azalea rival, Route
+-- 40/41 swimmers, Azalea Rockets).
+local VARIABLE_LIVE={
+  SPRITERIVAL=sheet("silver-kasc-hd-4x3-walk-sheet-v1"),
+  SPRITESWIMMERGUY=sheet("swimmer-kasc-hd-4x3-walk-sheet-v1"),
+  SPRITEROCKET=sheet("team-rocket-male-kasc-hd-4x3-walk-sheet-v1"),
+}
+function WalkingSprites:_variableSprite(mapId,entity)
+  if self.generation~=2 then return nil end
+  local def=type(entity)=="table" and entity.def or nil
+  if not(def and type(def.sprite)=="number" and def.sprite>=0xf0)then return nil end
+  local live=entity.spriteDef or (entity.sprite and entity.sprite.def)
+  local liveId=normalize(live and live.id)
+  local cells=VARIABLE_CELLS[normalize(mapId)]
+  local cell=cells and cells[tostring(def.x)..":"..tostring(def.y)]
+  local atlas
+  if cell then atlas=cell[liveId] or cell["*"] else atlas=VARIABLE_LIVE[liveId] end
+  if type(atlas)=="string" and atlas:sub(1,5)=="role:" then
+    atlas=self.atlasByRole[atlas:sub(6)]
+  end
+  if atlas and self.runtimeByAtlas[atlas] then return atlas end
+  return nil
+end
+
+-- All surfaces (field, wardrobe and battle) use the same style/garments.
+function WalkingSprites:externalArt(entity,atlas,role,action,selection)
+ local source=externalSource(self);if not source then return nil end
+ local clothes=wardrobe()
+ local owned=role=='red'or role=='blue'or role=='green'
+ local context={generation=self.generation,entity=entity,atlas=atlas,role=role,action=action,
+  style=self.mod.options:get('human_art_style'),wardrobe=clothes,
+  selection=selection or owned and clothes and clothes.get(role),game=self.activeGame}
+ local ok,result=pcall(source.resolve,context)
+ if not ok then
+  self.lastExternalArtError=tostring(result)
+  -- Older optional Cards lack NPC action rigs. Keep map binding alive and
+  -- use the bundled provider's authored action when available.
+  local bundled=self.mod.characterArtSource
+  if bundled and bundled~=source then ok,result=pcall(bundled.resolve,context)end
+  if not ok then return nil end
+ end
+ if result and result.definition and result.definition.cobbleStyle=='cobble'
+     and not result.definition.ascendantSeatSource
+     and type(atlas)=='string'and atlas:match('^assets/characters/npcs/')then
+  -- The host selected this exact NPC source before asking for artwork.
+  -- Retain seat identity for Cards predating the seating metadata contract.
+  result.definition.ascendantSeatSource=atlas
+ end
+ return result
+end
+
+function WalkingSprites:appearance(path,role,action,selection)
+  local external=self:externalArt(nil,path,role,action,selection)
+  if external then return external.atlas,external.style=='voxel' end
+  role=tostring(role):lower()
+  if self.generation==1 and role=="hoenn-visitor" then
+    local style=self.mod.options:get("human_art_style")
+    local folder=style=="voxel" and "voxel-npcs" or style=="cobble" and "cobble-npcs" or "npcs"
+    local stem=folder.."/hoenn-visitor-kasc-hd-4x3-walk-sheet-v1.png"
+    local atlas="assets/characters/"..stem
+    local runtime="assets/characters/runtime/"..stem
+    if self.mod:info(atlas) and self.mod:info(runtime) then
+      return self.mod.path.."/"..atlas,style=="voxel",self.mod.path.."/"..runtime
+    end
+  end
+  local clothes=wardrobe()
+  local owned=role=='red'or role=='blue'or role=='green'
+  -- Gen 2's heroes have voxel walking cards too (voxelized from their own
+  -- Cobble rigs); no wardrobe or voxel action set, so those keep HD.
+  local johtoHero=self.generation==2 and(role=='gold'or role=='kris')
+  local selected=selection or (clothes and clothes.get(role))
+  if self:voxelEnabled() and not(selected and selected.style=='native')then
+    local relative=path:sub(1,#self.mod.path+1)==self.mod.path..'/' and path:sub(#self.mod.path+2) or nil
+    local candidate
+    if owned or johtoHero then
+      if owned and action=="fishing"then action=nil end -- Shared dressed body; holding pose comes from the field rig.
+      candidate=action and 'assets/characters/voxel-actions/'..role..'/'..action..'_4x3.png'
+        or 'assets/characters/voxel-demo/'..role..'_cards_4x3.png'
+    elseif relative then
+      candidate=relative:gsub('assets/characters/actions/','assets/characters/voxel-actions/')
+        :gsub('assets/characters/npcs/','assets/characters/voxel-npcs/')
+    end
+    if candidate and self.mod:info(candidate)then
+      local result=self.mod.path..'/'..candidate
+      if owned and clothes and clothes.isActive()and not clothes.plain(selected)then
+        result=self.mod.voxelWardrobe.resolve(role,action,clothes,selected)
+      end
+      -- KASC wardrobe johtoHero
+      if johtoHero and clothes and clothes.johtoAppearance then
+        local dressed=clothes.johtoAppearance(role,action,selected)
+        if dressed then result=dressed end
+      end
+      return result,true
+    end
+  end
+  return clothes and owned and clothes.resolve(path,role,selected)or path,false
+end
+
+function WalkingSprites:_bind(entity, atlas, role, identityOwner, action)
+  if type(entity) ~= "table" or not atlas then return false end
+  local external=self:externalArt(entity,atlas,role,action)
+  local runtime = self.runtimeByAtlas[atlas]
+  if not runtime and not external then
+    -- An explicit Card-only identity may lack the newly selected style.
+    -- Restore only our previous replacement; never leave a stale Cobble
+    -- image labelled by the menu as HD, or overwrite another owner's image.
+    local original=self.originals[entity]
+    if original and entity.sprite==original.replacement
+        and entity.sprite.def.ascendantExternalCharacterSource then
+      entity.sprite,entity.spriteDef=original.sprite,original.spriteDef
+      for _,key in ipairs({'ascendantCharacter','ascendantCharacterOwner','ascendantWalkingAtlas','ascendantWalkingSpriteOwner'})do entity[key]=original[key]end
+      self.originals[entity]=nil
+    end
+    return false
+  end
+  local clothes=wardrobe()
+  local ownedRole=role=='red'or role=='blue'or role=='green'
+  local fullAtlas=self.mod.path..'/'..atlas
+  local fullRuntime=external and external.runtime or self.mod.path..'/'..runtime
+  local voxelDemo,styleRuntime
+  if external then fullAtlas,voxelDemo=external.atlas,external.style=='voxel'
+  else
+    fullAtlas,voxelDemo,styleRuntime=self:appearance(fullAtlas,role,action)
+    fullRuntime=styleRuntime or fullRuntime
+  end
+  if self.mod.humanDlc then
+    fullAtlas=self.mod.humanDlc.path(fullAtlas)
+    local relative=fullAtlas:sub(#self.mod.path+2)
+    if fullAtlas:sub(1,#self.mod.path+1)==self.mod.path..'/' and not self.mod:info(relative)then return false end
+  end
+  if clothes and ownedRole then fullRuntime=clothes.resolve(fullRuntime,role)end
+  if entity.sprite and entity.sprite.def
+      and entity.sprite.def.ascendantAtlasImage == fullAtlas then
+    return false
+  end
+  local current = entity.sprite
+  local source = current and current.def or entity.spriteDef
+  if type(source) ~= "table" then return false end
+  local SpriteRenderer = require("src.render.SpriteRenderer")
+  local original = self.originals[entity]
+  if not original or (original.replacement ~= entity.sprite
+      and not (entity.sprite and entity.sprite.def
+        and entity.sprite.def.ascendantAtlasImage)) then
+    original = {
+      sprite=entity.sprite, spriteDef=entity.spriteDef,
+      ascendantCharacter=entity.ascendantCharacter,
+      ascendantCharacterOwner=entity.ascendantCharacterOwner,
+      ascendantWalkingAtlas=entity.ascendantWalkingAtlas,
+      ascendantWalkingSpriteOwner=entity.ascendantWalkingSpriteOwner,
+    }
+    self.originals[entity] = original
+  end
+  local def = clone(source)
+  if def.ascendantExternalCharacterSource then
+   for _,key in ipairs({'ascendantExternalCharacterSource','ascendantSeatSource','ascendantHumanCards','ascendantHumanFieldHands','cobbleCharacter','cobbleStyle','cobbleAnimated2D','cobbleWardrobeKey','ascendantPokemonBlinkSourceExact','ascendantPokemonBlinkSheet'})do def[key]=nil end
+  end
+  def.image = fullRuntime
+  def.frames, def.walker, def.trueColor = 6, true, true
+  -- Every native fallback here is 16x96, including actions. Do not retain
+  -- unrelated source-sheet frame dimensions when replacing its image.
+  def.frameWidth, def.frameHeight = 16, 16
+  def.anchorX, def.anchorY = 8, 16
+  def.voxelSpriteDemo = voxelDemo or nil
+  def.ascendantAtlasImage = fullAtlas
+  def.ascendantAtlasRelative = atlas
+  def.ascendantRole = role or roleFromPath(atlas)
+  def.ascendantScaleClass = scaleClass(def.ascendantRole)
+  def.ascendantCharacterAction = action
+  if external then
+   for key,value in pairs(external.definition)do def[key]=value end
+   role=external.role
+  end
+  local ok, renderer = pcall(SpriteRenderer.new, def, entity.id or "player")
+  if not ok or not renderer then
+    self.lastError = tostring(renderer or "renderer_creation_failed")
+    return false
+  end
+  entity.sprite, entity.spriteDef = renderer, def
+  -- The full fishing card already includes the lower-body pose and rod.
+  -- Do not paste the native eight-pixel fishing tiles over that artwork.
+  if action == "fishing" then renderer.drawTile = function() end end
+  original.replacement = renderer
+  entity.ascendantCharacter = def.ascendantRole
+  entity.ascendantCharacterOwner = identityOwner
+    or entity.ascendantCharacterOwner or self.mod.id
+  entity.ascendantWalkingAtlas = atlas
+  entity.ascendantWalkingSpriteOwner = self.mod.id
+  return true
+end
+
+function WalkingSprites:restore()
+  local bridge = self.showObjectBridge
+  if bridge then
+    if bridge.commands.show_object == bridge.wrapper then
+      bridge.commands.show_object = bridge.original
+    end
+    self.showObjectBridge = nil
+  end
+  local count = 0
+  for player, bridge in pairs(self.playerBridges) do
+    if bridge.bike and player.bikeSprite == bridge.bike.sprite then
+      player.bikeSprite = bridge.originalBike
+    end
+    for _, name in ipairs({"update", "pose"}) do
+      if bridge[name] and player[name] == bridge[name].wrapper then
+        player[name] = bridge[name].own
+      end
+    end
+    self.playerBridges[player] = nil
+  end
+  for entity, original in pairs(self.originals) do
+    entity.sprite, entity.spriteDef = original.sprite, original.spriteDef
+    entity.ascendantCharacter = original.ascendantCharacter
+    entity.ascendantCharacterOwner = original.ascendantCharacterOwner
+    entity.ascendantWalkingAtlas = original.ascendantWalkingAtlas
+    entity.ascendantWalkingSpriteOwner = original.ascendantWalkingSpriteOwner
+    count = count + 1
+    self.originals[entity] = nil
+  end
+  self.applied = 0
+  return count
+end
+
+function WalkingSprites:apply(game, refreshAuthority)
+  game = game or self.activeGame
+  if game then self.activeGame = game end
+  local world = worldFor(game)
+  if type(world) ~= "table" then return 0 end
+  local count = 0
+  local player = world.player
+  -- Provider `current()` values can briefly fall back to their default while
+  -- maps, dialogs, or renderers are rebuilt. Establish authority once, then
+  -- refresh it only for an explicit character-selection event.
+  local authority = refreshAuthority
+  if authority == nil then authority = self.playerRole == nil end
+  local playerRole = self:_playerRole(authority, player)
+  if not self:enabled() then return self:restore() end
+  self:_observeShownObjects()
+  if player then count = count + self:_bindPlayer(game, player, playerRole) end
+  local mapId = world.map and world.map.id
+  local kascActive = self:_kasc() ~= nil
+  -- Gen 2 includes the player in entities. Its authoritative hero/action
+  -- binding above must never pass through the generic NPC sprite lookup.
+  local seen = {}
+  if player then seen[player] = true end
+  for _, name in ipairs({ "npcs", "entities", "objects" }) do
+    local bucket = world[name]
+    if type(bucket) == "table" then
+      for _, entity in pairs(bucket) do
+        if type(entity) == "table" and not seen[entity] then
+          seen[entity] = true
+          local atlas,role,action=self:_npcVisual(mapId,entity,kascActive)
+          if self:_bind(entity, atlas, role, nil, action) then count = count + 1 end
+        end
+      end
+    end
+  end
+  self.applied = self.applied + count
+  return count
+end
+
+-- Gen 1's show_object creates a fresh NPC without emitting npc_spawned.
+-- Bind only that named live object after the native command; never respawn
+-- the map or rescan its actors every frame during an escort/cutscene.
+function WalkingSprites:_observeShownObjects()
+  if self.generation ~= 1 or self.showObjectBridge then return end
+  local ok, commands = pcall(require, "src.script.Commands")
+  if not ok or type(commands) ~= "table"
+      or type(commands.show_object) ~= "function" then return end
+  local binder, original = self, commands.show_object
+  local bridge = { commands=commands, original=original }
+  local function finish(ctx, mapId, objName, ...)
+    if binder.showObjectBridge == bridge and binder:enabled()
+        and type(ctx) == "table" and ctx.game == binder.activeGame then
+      local world = worldFor(ctx.game)
+      if world and ctx.overworld == world and world.map and world.map.id == mapId then
+        for _, entity in pairs(world.npcs or {}) do
+          if entity ~= world.player and entity.def and entity.def.name == objName then
+            local atlas,role,action=binder:_npcVisual(mapId,entity,binder:_kasc()~=nil)
+            if binder:_bind(entity,atlas,role,nil,action) then
+              binder.applied = binder.applied + 1
+            end
+            break
+          end
+        end
+      end
+    end
+    return ...
+  end
+  bridge.wrapper = function(ctx, mapId, objName, ...)
+    return finish(ctx, mapId, objName, original(ctx, mapId, objName, ...))
+  end
+  self.showObjectBridge = bridge
+  commands.show_object = bridge.wrapper
+end
+
+-- KASC may replace only the live player renderer after changing its Kanto
+-- character selection. Repairing that one seam each step is cheap and avoids
+-- rescanning every NPC on every frame.
+function WalkingSprites:refreshPlayer(game)
+  game = game or self.activeGame
+  if game then self.activeGame = game end
+  if not self:enabled() then return self:restore() end
+  local world = worldFor(game)
+  local player = world and world.player
+  if not player then return 0 end
+  local role = self:_playerRole(false, player)
+  return self:_bindPlayer(game, player, role)
+end
+
+-- The native Gen-1 pose selects bikeSprite, not sprite. Gen 2 rebuilds sprite
+-- from playerState. Bind both actual seams without changing selection, physics
+-- or the original Player classes; wrappers belong only to this live player.
+function WalkingSprites:_bindPlayer(game, player, role)
+  local clothes=wardrobe()
+  if clothes and (role=='red'or role=='blue'or role=='green')and clothes.native(role)then return 0 end
+  local bridge = self.playerBridges[player]
+  if not bridge then
+    bridge = {}
+    self.playerBridges[player] = bridge
+    for _, name in ipairs({"update", "pose"}) do
+      local raw = player[name]
+      if type(raw) == "function" then
+        local entry = {own=rawget(player, name)}
+        entry.wrapper = function(p, ...)
+          local result = packValues(raw(p, ...))
+          -- KASC can replace the live renderer while the player method runs.
+          -- Repair after it returns so Green/Blue cannot flash back to their
+          -- provider card and silently leave the blink/motion renderer.
+          self:refreshPlayer(game)
+          return unpackValues(result, 1, result.n)
+        end
+        bridge[name] = entry
+        player[name] = entry.wrapper
+      end
+    end
+  end
+  local actions = self.characterActions
+  local function atlasFor(action)
+    return actions and actions.relative(role, action)
+  end
+  if player.bikeSprite then
+    if not bridge.bike or player.bikeSprite ~= bridge.bike.sprite then
+      bridge.originalBike = player.bikeSprite
+      bridge.bike = {sprite=player.bikeSprite, id="player"}
+    end
+    self:_bind(bridge.bike, atlasFor("bicycle"), role,
+      self:_playerIdentityOwner(), "bicycle")
+    player.bikeSprite = bridge.bike.sprite
+  end
+  local world = worldFor(game)
+  local state = world and world.playerState
+  local action = player.fishing and "fishing"
+    or (self.generation == 2 and state == "bike" and "bicycle") or nil
+  -- No authored surfing card exists: retain the engine's actual surf pose.
+  if self.generation == 2 and state and state ~= "normal" and state ~= "bike"
+      and not action then return 0 end
+  local atlas = action and atlasFor(action) or self.atlasByRole[role]
+  return self:_bind(player, atlas, role, self:_playerIdentityOwner(), action) and 1 or 0
+end
+
+function WalkingSprites:install()
+  if self.installed then return true end
+  self.installed = true
+  if self.mod.events and type(self.mod.events.on) == "function" then
+    local binder = self
+    self.mod.events:on('wardrobe.changed',function(ev)
+      binder.fieldSprites=setmetatable({}, {__mode='v'})
+      binder:apply(ev and ev.game or binder.activeGame,'kasc-event')
+    end,PRESENTATION_PRIORITY)
+    for _, event in ipairs({ "save.loaded", "save.created" }) do
+      self.mod.events:on(event, function(ev)
+        local game = ev and ev.game or binder.activeGame
+        -- A different save is a new identity authority. Keep the movement
+        -- latch within a save, but never carry Gold over into a Kris save.
+        if binder.generation == 2 then
+          binder.playerRole = binder:_savedPlayerRole(game)
+          binder:apply(game, binder.playerRole == nil)
+        else
+          binder.playerRole = nil
+          binder:apply(game, "kasc-event")
+        end
+      end, PRESENTATION_PRIORITY)
+    end
+    for _, event in ipairs({ "game.ready", "map.entered",
+        "map.reloaded" }) do
+      self.mod.events:on(event, function(ev)
+        binder:apply(ev and ev.game or binder.activeGame, false)
+      end, PRESENTATION_PRIORITY)
+    end
+    -- Runtime NPCs (for example the Driftglass boatman) can appear after
+    -- map.entered. The engine publishes the pool entry before this event,
+    -- but adds it to world.npcs afterwards: bind that one pooled actor.
+    -- Gold emits it (runtime=false) on every pool miss: objects an `appear`,
+    -- a flag or the hour reveals mid-visit, and the ghosts on neighbour
+    -- strips. Unbound, those kept the bare cartridge sheet, which the voxel
+    -- view draws as a grey noise card.
+    self.mod.events:on("world.npc_spawned", function(ev)
+      local gen2 = binder.generation == 2
+      if not ev or not binder:enabled() then return end
+      if not gen2 and (binder.generation ~= 1 or ev.runtime ~= true) then return end
+      local world = worldFor(ev.game or binder.activeGame)
+      if not (world and world.map and (gen2 or world.map.id == ev.mapId)) then return end
+      local entity = world.npcPool and world.npcPool[ev.npcId]
+      if type(entity) ~= "table" or entity == world.player then return end
+      local atlas,role,action=binder:_npcVisual(ev.mapId,entity,binder:_kasc()~=nil)
+      if binder:_bind(entity,atlas,role,nil,action) then
+        binder.applied = binder.applied + 1
+      end
+    end, PRESENTATION_PRIORITY)
+    self.mod.events:on("character.selected", function(ev)
+      -- JASC currently also emits this seam while rebuilding the player on
+      -- the first movement tick.  Its current() value can be Gold/Ethan for
+      -- that one callback even in a Crystal/Kris save, so it is not a safe
+      -- authority refresh signal.  The role established from the loaded save
+      -- remains latched; a newly loaded/created runtime gets its own binder.
+      binder:apply(ev and ev.game or binder.activeGame,
+        binder.generation == 1 and "kasc-event" or false)
+    end, PRESENTATION_PRIORITY)
+    self.mod.events:on("mod.johto_ascendant.character_selected", function(ev)
+      if binder.generation ~= 2 then return end
+      local selected = tostring(ev and ev.character or ""):lower()
+      if selected == "crystal" then selected = "kris" end
+      if selected == "ethan" then selected = "gold" end
+      if binder.atlasByRole[selected] then
+        binder.playerRole = selected
+        if binder.debugLog then
+          binder.debugLog:role("jasc-event", selected,
+            ev and ev.game or binder.activeGame,
+            worldFor(ev and ev.game or binder.activeGame)
+              and worldFor(ev and ev.game or binder.activeGame).player)
+        end
+      end
+      binder:apply(ev and ev.game or binder.activeGame, false)
+    end, PRESENTATION_PRIORITY)
+    self.mod.events:on("world.stepped", function(ev)
+      binder:refreshPlayer(ev and ev.game or binder.activeGame)
+    end, PRESENTATION_PRIORITY)
+    -- A variablesprite (Fuchsia ninja unmasked, Copycat copying the player,
+    -- the impersonator, the Olivine rival leaving) repaints the object in
+    -- place (World:setVariableSprite -> NPC:setSpriteDef) and emits no event,
+    -- so the fresh cartridge renderer would stay until the next map load.
+    -- Rebind once after each one. The class wrap is installed once; it always
+    -- talks to the newest binder.
+    if self.generation == 2 then
+      WalkingSprites.varSpriteBinder = self
+      local okW, World2 = pcall(require, "src.world.gen2.World")
+      if okW and type(World2) == "table"
+          and type(World2.setVariableSprite) == "function"
+          and not World2.ascendantVariableRebind then
+        local original = World2.setVariableSprite
+        World2.ascendantVariableRebind = true
+        World2.setVariableSprite = function(world, ...)
+          original(world, ...)
+          local b = WalkingSprites.varSpriteBinder
+          if b and world and world.map and b:enabled() then
+            pcall(b.apply, b, b.activeGame, false)
+          end
+        end
+      end
+    end
+    self.mod.events:on("mod.options_changed", function(ev)
+      if not ev or not ev.mod or ev.mod == binder.mod.id then
+        binder:apply(binder.activeGame)
+      end
+    end, PRESENTATION_PRIORITY)
+  end
+  return true
+end
+
+function WalkingSprites:health()
+  local roleCount, runtimeCount = 0, 0
+  for _ in pairs(self.atlasByRole) do roleCount = roleCount + 1 end
+  for _ in pairs(self.runtimeByAtlas) do runtimeCount = runtimeCount + 1 end
+  return {
+    schema=WalkingSprites.SCHEMA, ok=self.installed and self.lastError == nil,
+    enabled=self:enabled(), generation=self.generation,
+    runtimeAssetCount=runtimeCount, heroRoleCount=roleCount,
+    playerRole=self.playerRole, applied=self.applied, lastError=self.lastError,
+  }
+end
+
+-- A render-only normal body for field actions. Selection and outfit come
+-- from the same authority as walking; no action may invent a default hero.
+function WalkingSprites:fieldSprite(player)
+  if not self:enabled() or not player then return nil end
+  local role = self:_playerRole(false, player)
+  local clothes=wardrobe()
+  if clothes and (role=='red'or role=='blue'or role=='green')and clothes.native(role)then return nil end
+  local current = player.sprite
+  local def = current and current.def or {}
+  local voxelHold = player.fishing and (self:voxelEnabled()or self.mod.options:get('human_art_style')=='cobble') and (role=="red"or role=="blue"or role=="green")
+  local action = player.fishing and not voxelHold and "fishing" or nil
+  local atlas = action and self.characterActions
+    and self.characterActions.relative(role, action) or def.ascendantAtlasRelative
+  if not action and (def.ascendantCharacterAction or def.ascendantRole ~= role or not atlas) then
+    atlas = self.atlasByRole[role]
+  end
+  if not atlas or not self.runtimeByAtlas[atlas] then return current end
+  self.fieldSprites = self.fieldSprites or setmetatable({}, {__mode='v'})
+  local key = tostring(role) .. ":" .. atlas..':'..tostring(self.mod.options:get('human_art_style'))..':'..tostring(voxelHold)..':'..(clothes and clothes.token(role)or'original')
+  if not self.fieldSprites[key] then
+    local actor = {sprite=current, spriteDef=def, id="player"}
+    if not self:_bind(actor, atlas, role, self:_playerIdentityOwner(), voxelHold and self.mod.options:get('human_art_style')=='cobble'and'hold'or action) then
+      if not (actor.sprite and actor.sprite.def.ascendantAtlasImage) then return nil end
+    end
+    if voxelHold then actor.sprite.def.ascendantVoxelFieldPose=self.mod.options:get('human_art_style')=='cobble'and'cobble-hold'or'fishing'end
+    self.fieldSprites[key] = actor.sprite
+  end
+  return self.fieldSprites[key]
+end
+
+-- Recover the chosen normal cartridge body while Gen 2 temporarily owns a
+-- SURF/bicycle renderer. Gender alone cannot distinguish Gold from Silver.
+function WalkingSprites:fieldNativeDef(player, world)
+  local role = self:_playerRole(false, player)
+  local function matches(def)
+    if type(def) ~= "table" or def.ascendantAtlasImage then return false end
+    local id = normalize(def.id)
+    return not (id:find("SURF") or id:find("BIKE") or id:find("FISH"))
+      and identityRole(def.id, self.generation, self:_kasc() ~= nil) == role
+  end
+  local original = self.originals and self.originals[player]
+  for _,sprite in pairs({player and player.sprite, original and original.sprite}) do
+    if sprite and matches(sprite.def) then return sprite.def end
+  end
+  local names = {}
+  for name,def in pairs(world and world.sprites or {}) do
+    if matches(def) then names[#names+1]=name end
+  end
+  table.sort(names)
+  return names[1] and world.sprites[names[1]] or nil
+end
+
+function WalkingSprites:voxelEnabled()
+  return self:enabled() and self.mod.options and self.mod.options:get("human_art_style") == "voxel"
+end
+
+-- A distant NPC view uses the same catalog, variant and style as its live
+-- counterpart, without inserting an NPC into the current world or updating it.
+function WalkingSprites:scenerySprite(mapId,object,native)
+  if not self:enabled() or not object or not native then return native end
+  local actor={def=object,id=mapId.."_obj_"..tostring(object.index),
+    cellX=object.x,cellY=object.y,sprite=native,spriteDef=native.def}
+  local atlas,role,action=self:_npcVisual(mapId,actor,self:_kasc()~=nil)
+  self:_bind(actor,atlas,role,nil,action)
+  return actor.sprite
+end
+
+function WalkingSprites:public()
+  local binder = self
+  return {
+    schema=WalkingSprites.SCHEMA,
+    artSourceExtension='ascendant.character-art-source/v1',
+    artStyle=function()return binder.mod.options:get('human_art_style')end,
+    setArtStyle=function(style,game)
+      if style~='hd'and style~='voxel'and style~='cobble'then return false,'invalid-style' end
+      binder.mod.options:setHumanArtStyle(style,game or binder.activeGame)
+      binder:apply(game or binder.activeGame);return true
+    end,
+    resolveAppearance=function(path,role,action,selection)return binder:appearance(path,role,action,selection)end,
+    voxelDemoEnabled=function() return binder:voxelEnabled() end,
+    setVoxelDemo=function(enabled,game)
+      binder.mod.options:setHumanArtStyle(enabled and "voxel" or "hd",game or binder.activeGame)
+      return binder:apply(game or binder.activeGame)
+    end,
+    enabled=function() return binder:enabled() end,
+    fieldSprite=function(player) return binder:fieldSprite(player) end,
+    scenerySprite=function(mapId,object,native)return binder:scenerySprite(mapId,object,native)end,
+    fieldNativeDef=function(player, world) return binder:fieldNativeDef(player, world) end,
+    refresh=function(game) return binder:apply(game) end,
+    restore=function() return binder:restore() end,
+    health=function() return binder:health() end,
+  }
+end
+
+return WalkingSprites

@@ -1,0 +1,267 @@
+-- Generation-neutral National-Dex to artwork resolver.
+
+local Catalog = {
+  SCHEMA = "ascendant.pokemon-overworld.catalog/v1",
+  FIRST_DEX = 1,
+  -- The cartridge follower matrix remains intentionally bounded to the
+  -- original 251. Presentation-only GO cards can cover the imported
+  -- expansion independently without manufacturing nonexistent follower PNGs.
+  LAST_DEX = 251,
+  LAST_PRESENTATION_DEX = 411,
+  FRAMES = 6,
+  WIDTH = 16,
+  HEIGHT = 96,
+}
+
+local SHINY_ATTACK_DV = {
+  [2]=true, [3]=true, [6]=true, [7]=true,
+  [10]=true, [11]=true, [14]=true, [15]=true,
+}
+
+local function integer(value)
+  local number = tonumber(value)
+  if not number then return nil end
+  number = math.floor(number)
+  return number
+end
+
+function Catalog.validDex(value)
+  local dex = integer(value)
+  if dex and dex >= Catalog.FIRST_DEX and dex <= Catalog.LAST_DEX then
+    return dex
+  end
+  return nil
+end
+
+function Catalog.validPresentationDex(value)
+  local dex = integer(value)
+  if dex and dex >= Catalog.FIRST_DEX
+      and dex <= Catalog.LAST_PRESENTATION_DEX then
+    return dex
+  end
+  return nil
+end
+
+local function dexFor(game, value, validator)
+  if type(value) == "table" then
+    local direct = validator(value.nationalDex or value.pokemonDex
+      or value.dexNo or value.dex)
+    if direct then return direct end
+    value = value.species or value.pokemonSpecies
+  end
+  local direct = validator(value)
+  if direct then return direct end
+  if type(value) ~= "string" then return nil end
+  local pokemon = game and game.data and game.data.pokemon
+  local def = pokemon and (pokemon[value] or pokemon[value:upper()])
+  return validator(def and (def.dex or def.nationalDex))
+end
+
+function Catalog.dexFor(game, value)
+  return dexFor(game, value, Catalog.validDex)
+end
+
+function Catalog.presentationDexFor(game, value)
+  -- Private Hoenn candidate. Preserve explicit presentation IDs and all
+  -- existing cartridge behavior; backend private dex slots are not National Dex.
+  local explicit = type(value) == "table" and Catalog.validPresentationDex(
+    value.nationalDex or value.pokemonDex or value.dexNo or value.dex)
+  if explicit then return explicit end
+  local species = type(value) == "table" and (value.species or value.pokemonSpecies) or value
+  local pokemon = game and game.data and game.data.pokemon
+  local definition = type(species) == "string" and pokemon and pokemon[species]
+  local exports = game and game.mods and game.mods.exports
+  local kas = exports and exports.kanto_ascendant
+  local owner = kas and kas.backendGiftSpecies67
+  local sourceDex = definition and tonumber(definition.sourceDex)
+  if sourceDex and sourceDex >= 252 and sourceDex <= 386
+      and sourceDex == math.floor(sourceDex) and type(owner) == "table"
+      and owner.OWNER == "kasc.backend.gift-species/v1" then
+    local key = type(owner.bySpecies) == "table" and owner.bySpecies[species]
+    if key and type(owner.byKey) == "table" and owner.byKey[key] == species then
+      if key == "dex:" .. sourceDex and not definition.backendForm
+          and not definition.formId then return sourceDex end
+      -- Unrepresented persistent forms must not become an unrelated private
+      -- dex slot or the normal Hoenn card. Leave their existing owner in charge.
+      return nil
+    end
+  end
+  return dexFor(game, value, Catalog.validPresentationDex)
+end
+
+-- Gen-1 map objects publish exact names/text IDs even when their artwork is
+-- a shared MONSTER/FAIRY/SEEL/POKE_BALL sheet. Resolve that authored identity
+-- before the sprite name (the zoo's Lapras otherwise becomes Seel). Never
+-- infer a species for humans, items or the fossil exhibit.
+local MAP_POKEMON_SPRITES = {
+  SPRITE_MONSTER=true, SPRITE_FAIRY=true, SPRITE_SEEL=true,
+  SPRITE_BIRD=true, SPRITE_BUG=true, SPRITE_SLOWBRO=true,
+  SPRITE_SNORLAX=true, SPRITE_POKE_BALL=true,
+}
+-- BEGIN gen2-map-species (Johto VASC): Crystal reuses generic overworld
+-- sheets (SPRITE_TAUROS for Miltank, SPRITE_MOLTRES as the stock bird,
+-- SPRITE_GROWLITHE as the stock quadruped...). Stripping SPRITE_ made HD/voxel
+-- art show the sheet's namesake. Each entry is map#object index -> the species
+-- the object's own script cries as (or the scene names); the sheet must still
+-- match so another ROM/map layout never inherits a wrong species.
+local GEN2_MAP_SPECIES = {
+  ["BLACKTHORN_DRAGON_SPEECH_HOUSE#2"] = {"SPRITE_EKANS", "DRATINI"},
+  ["CELADON_CITY#2"] = {"SPRITE_POLIWAG", "POLIWRATH"},
+  ["CELADON_MANSION_1F#2"] = {"SPRITE_GROWLITHE", "MEOWTH"},
+  ["CELADON_MANSION_1F#4"] = {"SPRITE_GROWLITHE", "NIDORAN_F"},
+  ["CERULEAN_CITY#3"] = {"SPRITE_SLOWPOKE", "SLOWBRO"},
+  ["CERULEAN_TRADE_SPEECH_HOUSE#3"] = {"SPRITE_RHYDON", "KANGASKHAN"},
+  ["CHARCOAL_KILN#3"] = {"SPRITE_MOLTRES", "FARFETCH_D"},
+  ["COPYCATS_HOUSE_1F#3"] = {"SPRITE_CLEFAIRY", "BLISSEY"},
+  ["COPYCATS_HOUSE_2F#2"] = {"SPRITE_MOLTRES", "DODRIO"},
+  ["COPYCATS_HOUSE_2F#3"] = {"SPRITE_FAIRY", "CLEFAIRY"},
+  ["GOLDENROD_DEPT_STORE_B1F#8"] = {"SPRITE_MACHOP", "MACHOKE"},
+  ["ILEX_FOREST#1"] = {"SPRITE_BIRD", "FARFETCH_D"},
+  ["INDIGO_PLATEAU_POKECENTER_1F#6"] = {"SPRITE_JYNX", "ABRA"},
+  ["MAHOGANY_MART_1F#4"] = {"SPRITE_DRAGON", "DRAGONITE"},
+  ["MOUNT_MOON_SQUARE#1"] = {"SPRITE_FAIRY", "CLEFAIRY"},
+  ["MOUNT_MOON_SQUARE#2"] = {"SPRITE_FAIRY", "CLEFAIRY"},
+  ["MR_FUJIS_HOUSE#3"] = {"SPRITE_RHYDON", "PSYDUCK"},
+  ["MR_FUJIS_HOUSE#4"] = {"SPRITE_GROWLITHE", "NIDORINO"},
+  ["MR_FUJIS_HOUSE#5"] = {"SPRITE_MOLTRES", "PIDGEY"},
+  ["NATIONAL_PARK#7"] = {"SPRITE_GROWLITHE", "PERSIAN"},
+  -- Amphy: its cry sits in the still-sick branch of the 6F script.
+  ["OLIVINE_LIGHTHOUSE_6F#2"] = {"SPRITE_MONSTER", "AMPHAROS"},
+  ["PEWTER_NIDORAN_SPEECH_HOUSE#2"] = {"SPRITE_GROWLITHE", "NIDORAN_M"},
+  ["POKEMON_FAN_CLUB#5"] = {"SPRITE_FAIRY", "CLEFAIRY"},
+  ["POKEMON_FAN_CLUB#6"] = {"SPRITE_ODDISH", "BAYLEEF"},
+  ["RADIO_TOWER_4F#3"] = {"SPRITE_GROWLITHE", "MEOWTH"},
+  ["ROUTE_28_STEEL_WING_HOUSE#2"] = {"SPRITE_MOLTRES", "FEAROW"},
+  -- Joey's Rattata (beside him) and his rival's Pidgey in the Route 30 battle.
+  ["ROUTE_30#6"] = {"SPRITE_MONSTER", "PIDGEY"},
+  ["ROUTE_30#7"] = {"SPRITE_MONSTER", "RATTATA"},
+  ["ROUTE_39#4"] = {"SPRITE_TAUROS", "MILTANK"},
+  ["ROUTE_39#5"] = {"SPRITE_TAUROS", "MILTANK"},
+  ["ROUTE_39#6"] = {"SPRITE_TAUROS", "MILTANK"},
+  ["ROUTE_39#7"] = {"SPRITE_TAUROS", "MILTANK"},
+  ["ROUTE_39_BARN#3"] = {"SPRITE_TAUROS", "MILTANK"},
+  ["TEAM_ROCKET_BASE_B2F#4"] = {"SPRITE_DRAGON", "DRAGONITE"},
+  ["TEAM_ROCKET_BASE_B2F#5"] = {"SPRITE_VOLTORB", "ELECTRODE"},
+  ["TEAM_ROCKET_BASE_B2F#6"] = {"SPRITE_VOLTORB", "ELECTRODE"},
+  ["TEAM_ROCKET_BASE_B2F#7"] = {"SPRITE_VOLTORB", "ELECTRODE"},
+  ["TEAM_ROCKET_BASE_B2F#8"] = {"SPRITE_VOLTORB", "ELECTRODE"},
+  ["TEAM_ROCKET_BASE_B2F#9"] = {"SPRITE_VOLTORB", "ELECTRODE"},
+  ["TEAM_ROCKET_BASE_B2F#10"] = {"SPRITE_VOLTORB", "ELECTRODE"},
+  ["TEAM_ROCKET_BASE_B3F#3"] = {"SPRITE_MOLTRES", "MURKROW"},
+  ["UNION_CAVE_B2F#6"] = {"SPRITE_SURF", "LAPRAS"},
+  ["VERMILION_CITY#5"] = {"SPRITE_BIG_SNORLAX", "SNORLAX"},
+  ["VIOLET_NICKNAME_SPEECH_HOUSE#3"] = {"SPRITE_BIRD", "PIDGEY"},
+  ["VIRIDIAN_NICKNAME_SPEECH_HOUSE#3"] = {"SPRITE_MOLTRES", "SPEAROW"},
+  ["VIRIDIAN_NICKNAME_SPEECH_HOUSE#4"] = {"SPRITE_GROWLITHE", "RATTATA"},
+}
+-- The Lake of Rage Gyarados is the red one.
+local GEN2_MAP_SHINY = { ["LAKE_OF_RAGE#9"] = "SPRITE_GYARADOS" }
+local function gen2MapSpecies(game, entity, def)
+  if type(def.scriptKey) ~= "string" or def.index == nil then return nil end
+  local world = game and (game.world or game.overworld)
+  local mapId = world and world.map and world.map.id
+  if type(mapId) ~= "string" then return nil end
+  local key = mapId .. "#" .. tostring(def.index)
+  if GEN2_MAP_SHINY[key] == def.sprite and entity.shiny == nil then
+    entity.shiny = true
+  end
+  local row = GEN2_MAP_SPECIES[key]
+  local pokemon = game.data and game.data.pokemon
+  if row and row[1] == def.sprite and type(pokemon) == "table"
+      and pokemon[row[2]] then
+    return row[2]
+  end
+  return nil
+end
+-- END gen2-map-species
+
+function Catalog.mapSpeciesFor(game, entity)
+  local def = type(entity) == "table" and entity.def
+  if type(def) == "table" and type(def.scriptKey) == "string" then
+    local gen2 = gen2MapSpecies(game, entity, def) -- gen2-map-species
+    if gen2 then return gen2 end
+  end
+  if type(def) ~= "table" or not MAP_POKEMON_SPRITES[def.sprite]
+      or def.item or def.trainer or def.trainerClass then return nil end
+  local pokemon = game and game.data and game.data.pokemon
+  if type(pokemon) ~= "table" then return nil end
+  -- This fixed encounter's event name ends in VOLCANO rather than its species.
+  -- Keep its native object identity while allowing the chosen HD provider.
+  local world = game and (game.overworld or game.world)
+  local mapId = world and world.map and world.map.id
+  if mapId == "KA_MOLTRES_VOLCANO" and def.name == "KA_MOLTRES_VOLCANO"
+      and def.sprite == "SPRITE_BIRD" and pokemon.MOLTRES then return "MOLTRES" end
+  if mapId == "KA_MOLTRES_VOLCANO_ASCENT" and def.name == "KA_MOLTRES_MAGMAR_GUARD"
+      and pokemon.MAGMAR then return "MAGMAR" end
+  for _, key in ipairs({"name", "text"}) do
+    local name = def[key]
+    if type(name) == "string" then
+      -- Pewter's native event omits the sex suffix; its authored talk script
+      -- explicitly plays NIDORAN_M's cry. Do not guess other generic monsters.
+      if (name=='PEWTERNIDORANHOUSE_NIDORAN' or name=='TEXT_PEWTERNIDORANHOUSE_NIDORAN')
+          and pokemon.NIDORAN_M then return 'NIDORAN_M' end
+      -- Each suffix is matched against an exact species key, including
+      -- NIDORAN_M/F. No approximate matching of names or sprite silhouettes.
+      for at in name:gmatch("_()") do
+        local species = name:sub(at):upper()
+        species = ({NIDORANF='NIDORAN_F',NIDORANM='NIDORAN_M'})[species] or species
+        if pokemon[species] then return species end
+      end
+    end
+  end
+  return nil
+end
+
+function Catalog.isShiny(mon)
+  if type(mon) ~= "table" then return false end
+  if mon.shiny ~= nil then return mon.shiny == true end
+  if mon.isShiny ~= nil and type(mon.isShiny) ~= "function" then
+    return mon.isShiny == true
+  end
+  local dvs = mon.dvs or mon.dv
+  if type(dvs) ~= "table" then return false end
+  local attack = integer(dvs.attack or dvs.atk)
+  return integer(dvs.defense or dvs.def) == 10
+    and integer(dvs.speed or dvs.spd) == 10
+    and integer(dvs.special or dvs.spc) == 10
+    and SHINY_ATTACK_DV[attack] == true
+end
+
+function Catalog.relative(dex, shiny, submerged)
+  dex = Catalog.validDex(dex)
+  if not dex then return nil end
+  local suffix = shiny and "shiny" or "normal"
+  if submerged then suffix = suffix .. "_submerged" end
+  return ("assets/followers/follower_%03d_%s.png"):format(dex, suffix)
+end
+
+function Catalog.asset(mod, game, mon, submerged)
+  local dex = Catalog.dexFor(game, mon)
+  local relative = Catalog.relative(dex, Catalog.isShiny(mon), submerged)
+  return relative and (mod.path .. "/" .. relative) or nil, dex, relative
+end
+
+function Catalog.public(mod)
+  return {
+    schema = Catalog.SCHEMA,
+    firstDex = Catalog.FIRST_DEX,
+    lastDex = Catalog.LAST_DEX,
+    speciesCount = Catalog.LAST_DEX - Catalog.FIRST_DEX + 1,
+    lastPresentationDex = Catalog.LAST_PRESENTATION_DEX,
+    presentationSpeciesCount = Catalog.LAST_PRESENTATION_DEX
+      - Catalog.FIRST_DEX + 1,
+    variants = { "normal", "shiny", "normal_submerged", "shiny_submerged" },
+    frames = Catalog.FRAMES,
+    width = Catalog.WIDTH,
+    height = Catalog.HEIGHT,
+    dexFor = Catalog.dexFor,
+    presentationDexFor = Catalog.presentationDexFor,
+    isShiny = Catalog.isShiny,
+    relative = Catalog.relative,
+    asset = function(game, mon, submerged)
+      return Catalog.asset(mod, game, mon, submerged)
+    end,
+  }
+end
+
+return Catalog

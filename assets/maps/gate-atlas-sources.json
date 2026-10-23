@@ -1,0 +1,19 @@
+{
+  "source": "Existing illustrated Kanto/Sevii Smart Map companion 1.1.0; read-only wall-view factory",
+  "source_script_sha256": "7bb268a12f8ecb907813074457de32495c2dae1e9b816b4238c257cfa1fab9a1",
+  "adapted_script_sha256": "2391ebf63a824e0ff0984cc570aa1ade7da20f320e9f8fb2b5a4fee43db018b1",
+  "files": [
+    {
+      "path": "assets/maps/kanto_fly_map_wide.png",
+      "sha256": "6c7364811ab093cd50289f232af194f030f05e883e4705f9808e75d12e43a9a1"
+    },
+    {
+      "path": "assets/maps/kanto_fly_map_wide_zoom.png",
+      "sha256": "c9ce022bf3b68f2381c818c678d42595e5acd5fe077b4a8010b86db0fe6c778f"
+    },
+    {
+      "path": "assets/maps/sevii_fly_map_master.png",
+      "sha256": "c8adf071bf63e5caad23c92cf0aadc0354de3203558adce43259cea4754b2a16"
+    }
+  ]
+}
