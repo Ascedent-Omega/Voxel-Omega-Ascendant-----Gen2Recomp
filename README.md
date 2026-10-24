@@ -1,4 +1,9 @@
-# Voxel Ascendant 3.0.64
+# Voxel Ascendant 3.0.65-rc.1
+
+## Engine-specific downloads
+
+This Gen2Recomp package is a release candidate fixing the missing optional download transport at startup. For Gen1Recomp, use the unchanged stable Voxel Ascendant 3.0.63 package from the original Ascendant repository. Gen1Recomp and Gen2Recomp need separate manifests and downloads. Both Gen2 packages must be updated together. Android hardware verification is pending.
+
 
 **Pokémon Red, Blue and Yellow in a full 3D voxel world, for Gen2Recomp.**
 
@@ -16,7 +21,7 @@ Voxel Ascendant (VASC) turns the Kanto of the Gen 1 games into a living voxel wo
 - **Your Look.** A guided setup card to choose your character, the camera and the graphics level, with a live preview.
 - **Optional extras.** HD character and Pokémon packages, your own music and sprites, and the Game Corner pinball tables with your own Pokémon Pinball cartridge. No ROM is ever included.
 
-## New in 3.0.64
+## New in 3.0.65-rc.1
 
 - **Gen2Recomp support.** Runs on Gen2Recomped 0.8.45. The generation check now reads the cartridge itself, so Red, Blue and Yellow always start the Gen 1 runtime.
 - **Gen 1 only.** The Gold/Silver/Crystal runtime is not part of this package, which makes it about 40 MB smaller. The Stadium importer modules that Gen 1 battles use are kept.
@@ -31,7 +36,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full history.
 
 1. Install **Gen2Recomp** (Gen2Recomped 0.8.45) and import your own Red, Blue or Yellow cartridge in its launcher.
 2. Close the game. If you already have Voxel Ascendant, keep a copy of your `mods/VOXEL_ASCENDANT` folder.
-3. Download `Voxel-Ascendant-3.0.64.zip` from the [release page](../../releases), delete the old `mods/VOXEL_ASCENDANT` folder and unzip the new one into `mods/`. You should end up with `mods/VOXEL_ASCENDANT/main.lua`.
+3. Download `Voxel-Ascendant-3.0.65-rc.1.zip` from the [release page](../../releases), delete the old `mods/VOXEL_ASCENDANT` folder and unzip the new one into `mods/`. You should end up with `mods/VOXEL_ASCENDANT/main.lua`.
 4. Install **Kanto Ascendant 6.7.34** the same way. Update both mods together.
 5. Start the game. Your saves and settings are kept.
 

@@ -42,6 +42,10 @@ function M.new(d)
   end
   function self:start(path,bytes,hash)
     if self.state=="fetching" or self.state=="waiting" then return false,"busy" end
+    if type(d.transport.available)=="function" then
+      local ok,available=pcall(d.transport.available,d.transport)
+      if not ok or not available then return false,"transport_unavailable" end
+    end
     if #mirrors==0 then return false,"no_published_mirrors" end
     if type(path)~="string" or not path:match("^/[%w/_%.%-]+$") or path:find("..",1,true) then return false,"invalid_route" end
     if type(bytes)~="number" or bytes%1~=0 or bytes<1 or bytes>M.MAX_BYTES then return false,"invalid_size" end

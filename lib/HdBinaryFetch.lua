@@ -3,7 +3,21 @@
 local M = {}
 function M.new(mod)
   local native = mod.fetch
-  if love.system.getOS() ~= "Windows" then return native end
+  -- Gen2Recomped does not expose mod.fetch. Optional downloads must never
+  -- prevent the bundled game content from loading, on any platform.
+  if native == nil then
+    return {
+      available=function()return false end,
+      capabilities=function()return {} end,
+      get=function()return nil,"transport_unavailable" end,
+      poll=function()return {status="error",err="transport_unavailable"}end,
+      cancel=function()return false end,
+      release=function()end,
+      close=function()end,
+    }
+  end
+  local okPlatform, platform = pcall(function()return love.system.getOS()end)
+  if not okPlatform or platform ~= "Windows" then return native end
   local source = assert(mod:read("lib/HdBinaryFetchWorker.lua"))
   local jobs, workers = {}, {}
   local closed = false

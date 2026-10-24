@@ -1,6 +1,7 @@
 -- UI wording only. Internal diagnostic codes and persisted state stay intact.
 local M={}
 local messages={
+ transport_unavailable={'Downloads are unavailable on this engine. You can keep playing with the bundled graphics.','Downloads sind auf dieser Engine nicht verfuegbar. Du kannst mit den enthaltenen Grafiken weiterspielen.'},
  bundled_inventory_checking={'Existing sprite files are being checked. Please wait.','Vorhandene Sprite-Dateien werden geprueft. Bitte warten.'},
  bundled_removal_pending={'An external removal request is pending. Close the game and use manage-sprites.py from the update bundle.','Ein externer Loeschauftrag wartet. Spiel schliessen und manage-sprites.py aus dem Updatepaket verwenden.'},
  bundled_removal_cancelled={'Removal request cancelled. Existing sprite files remain unchanged.','Loeschauftrag abgebrochen. Vorhandene Sprite-Dateien bleiben unveraendert.'},

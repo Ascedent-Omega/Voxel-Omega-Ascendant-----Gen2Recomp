@@ -1,3 +1,11 @@
+## Gen2Recomp startup transport fix (release candidate)
+
+On engines without mod.fetch, the optional sprite downloader no longer aborts mod initialization. Downloads return a clear unavailable message, while bundled graphics and file imports remain available. Native Gen1 transports and the Windows binary worker retain their existing behavior.
+
+Distribution: retain the unchanged Gen1Recomp packages (VASC 3.0.63 / KASC 6.7.33), and provide separate Gen2Recomp candidates (VASC 3.0.65-rc.1 / KASC 6.7.35-rc.1). Gen2Recomp rejects the compute permission required by the Gen1 packages; one universal ZIP is not supported. Both Gen2 candidates are for Red, Blue and Yellow only.
+
+Validation: the reported failure is reproduced by the actual Gen2Recomped 0.8.45 loader and removed by this patch. Both stable Gen1 packages load in Gen1Recomp 0.3.96. Offline transport tests cover Android, iOS, macOS, Linux and Windows simulations; existing Windows binary-streaming, bounds, timeout and cancellation tests pass. These checks do not constitute a full playthrough or a physical Android/iOS test.
+
 # ASC OMEGA Ver.1.6
 
 Complete Voxel Ascendant package captured from the installed PC mod on 22 October 2026, continuing the private Ver.1.5 release. This is a full mod download. Johto Ascendant / KASC is distributed separately.
