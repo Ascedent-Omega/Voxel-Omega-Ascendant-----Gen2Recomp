@@ -1,3 +1,11 @@
+## 3.0.65-rc.3 — Universal sharpness and geometry follow-up (RC)
+
+- FULL preserves the selected T-SHIFT level instead of forcing maximum blur. For a sharp image, select T-SHIFT: OFF once; existing saved preferences are retained.
+- Verified walls, windows, all 3D camera stages and collision in four Red locations on Gen1Recomp 0.3.96 and Gen2Recomped 0.8.45, both natively and in the Android 15 emulator: 100 collision cases and 196 final frames.
+- Direct Silph exterior-glass tests verify the city view, ON/OFF/ON switching and solid collision in every environment.
+- Adds scenery failure diagnostics, readiness visibility, reproducible isolated drivers and a precise QA report. No geometry/collision rules or engine binaries are changed.
+- Same VASC Universal ZIP for both Recomps. Pair with unchanged KASC 6.7.35-rc.2 Universal ZIP. Gen2 compatibility remains a prerelease; no physical Android phone was tested.
+
 # Promoted to public VASC 3.0.60
 
 The tested 3.0.60-rc.1 candidate was promoted without runtime code or asset changes. Earlier candidate history follows.

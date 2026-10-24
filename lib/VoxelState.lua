@@ -25,8 +25,8 @@
 local Voxel = {}
 
 -- FULL is a PRESET, not another angle: one rung that puts the whole mode in
--- its intended state at once -- this camera, the miniature blur at full, the
--- horizon flat, the view fitted -- so a player who wants "the diorama" picks
+-- its intended state at once -- this camera, the complete scenery, the
+-- view fitted -- so a player who wants "the diorama" picks
 -- it rather than assembling it from four rows. It sits directly after OFF
 -- because that is the order those two get used in.
 --
@@ -100,8 +100,8 @@ end
 --
 -- The ANGLE rungs only, with FULL left out. The key is a display-mode
 -- cycler: pressing it should change the camera and nothing else, and FULL
--- reaches in and rewrites four other settings. Landing on it by accident,
--- mid-walk, would silently turn the blur to maximum and flatten the horizon
+-- reaches in and rewrites other scene settings. Landing on it by accident,
+-- mid-walk, would silently change the scenery, weather and view fit
 -- with no indication that a keypress had done so. FULL stays on the OPTIONS
 -- row, which is where a preset that changes other rows belongs.
 --

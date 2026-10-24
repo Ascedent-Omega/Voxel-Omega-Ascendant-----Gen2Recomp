@@ -2083,6 +2083,20 @@ function VoxelScene.mobileSceneryLifecyclePending(state)
   return false
 end
 
+-- Snapshot for support/renderer QA; does not advance resource preparation.
+function VoxelScene.sceneryStatus(state)
+  local map=state and state.map
+  local plan=MOBILE_RUNTIME and mobileSceneryPlan or activeUnion
+  return {
+    mobile=MOBILE_RUNTIME, enabled=HorizonWall.enabled(),
+    voxelReady=Voxel.ready, mapReady=readyMap==map,
+    gate=map and mobileSceneryPlanMap==map and mobileGateStatus(map) or nil,
+    horizon=plan and HorizonWall.cacheStatus(plan.state) or nil,
+    ready=state and VoxelScene.readyForReveal(state) or false,
+    pending=VoxelScene.pendingReason,
+  }
+end
+
 function VoxelScene.invalidateMobileScenery(reason)
   OverworldStadium.releaseAll()
   HdAuthoredFigures.invalidate()

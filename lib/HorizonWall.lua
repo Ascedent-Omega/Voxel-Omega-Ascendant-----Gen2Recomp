@@ -8278,9 +8278,12 @@ local function advanceJob(job)
     job.resumes = job.resumes + 1
     if frameResumes then frameResumes=frameResumes-1 end
     local started=frameRemaining and love.timer.getTime()
-    local ok = coroutine.resume(job.co)
+    local ok, buildError = coroutine.resume(job.co)
     if started then frameRemaining=frameRemaining-(love.timer.getTime()-started)end
     if not ok then
+      if V.mod and V.mod.log then
+        V.mod.log:warn("Scenery build failed: %s", tostring(buildError))
+      end
       job.complete = false
       return finishJob(job), false
     end

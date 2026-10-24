@@ -857,9 +857,9 @@ applyFull = function(level)
   local opts = Game.save and Game.save.options
   if not opts then return end
 
-  -- the miniature blur at its strongest: FULL is the diorama look, and the
-  -- tilt-shift is most of what makes it read as a model
-  Pipelines.setLevel("tiltshift", Pipelines.maxLevel("tiltshift"))
+  -- Depth of field is a separate presentation choice. Keep the selected
+  -- T-SHIFT level, including OFF, when entering FULL; increasing scene
+  -- detail must not silently blur buildings and signs again.
   Pipelines.syncOptions(opts)
   -- Preserve the separately selected world curvature when entering FULL.
   -- and the water reflecting everything it can: FULL is the diorama at its
