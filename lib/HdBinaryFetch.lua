@@ -1,8 +1,22 @@
 -- Preserve compressed content bytes on Windows without changing the engine's
 -- global network provider. Other platforms retain the native mod.fetch path.
 local M = {}
+-- Hosts without a mod fetch API (Gen2Recomp) get a transport that reports
+-- itself unavailable, so content screens show "offline" instead of failing.
+local function offline()
+  local t = {}
+  function t:available() return false end
+  function t:capabilities() return {} end
+  function t:get() return nil, "Network downloads are not available on this engine" end
+  function t:poll() return {status="error", err="Network downloads are not available on this engine"} end
+  function t:cancel() return false end
+  function t:release() end
+  function t:close() end
+  return t
+end
 function M.new(mod)
   local native = mod.fetch
+  if type(native) ~= "table" or type(native.get) ~= "function" then return offline() end
   if love.system.getOS() ~= "Windows" then return native end
   local source = assert(mod:read("lib/HdBinaryFetchWorker.lua"))
   local jobs, workers = {}, {}
