@@ -3272,10 +3272,28 @@ renderWorld = function(state, w, h, vw, vh, paletteFor)
         state.map.def.width*32,state.map.def.height*32,profile.shellHeight,Voxel3D.eye)
     end
     local windowVisible=silphWindows and V.require('SilphWindowVisibility').forView(state.map,HorizonWall.interiorProfileFor(state.map),Voxel3D.eye)
+  -- Adjacent exterior batches share the same room/portal/tint state.
+  -- Keep their original draw order, but change that state only at a real
+  -- interior/exterior boundary instead of rebuilding it around every mesh.
+  local drawingWindowExterior = false
+  local function windowExterior(on)
+    if drawingWindowExterior == on then return end
+    if on then
+      Voxel3D.roomVisibility(nil)
+      Voxel3D.drawTint(DayNight.tint(true))
+      Voxel3D.silphWindow(state.map,HorizonWall.interiorProfileFor(state.map).shellHeight)
+    else
+      Voxel3D.silphWindow(nil)
+      Voxel3D.drawTint()
+      Voxel3D.roomVisibility(roomView,true)
+    end
+    drawingWindowExterior = on
+  end
   for _, rim in ipairs(horizon) do
     if rim.kind ~= "water" and rim.kind~='window_glass'
        and (rim.class~='silph_exterior'or not windowVisible or windowVisible(rim.bounds,rim.ox,rim.oy))
        and cutawayRimVisible(rim, indoorCutaway) then
+      windowExterior(rim.class == 'silph_exterior')
       -- The floor reachability mask has no meaning at ceiling height. Its
       -- blocked cells otherwise punch sky-shaped holes above arena props.
       -- Whole-roof cutaway was already decided by cutawayRimVisible above.
@@ -3301,16 +3319,11 @@ renderWorld = function(state, w, h, vw, vh, paletteFor)
       if rim.class=='rooftop_baked'then
         V.require('RooftopCache').draw(rim,Mat4.translationFor(rim,rim.ox,0,rim.oy))
       elseif rim.class=='silph_exterior'then
-        Voxel3D.roomVisibility(nil);Voxel3D.drawTint(DayNight.tint(true))
-        Voxel3D.silphWindow(state.map,HorizonWall.interiorProfileFor(state.map).shellHeight)
         if rim.bakedWindow then
           V.require('RooftopCache').draw(rim,Mat4.translationFor(rim,rim.ox,0,rim.oy))
         else
         outdoorHorizon.draw(rim,Mat4.translationFor(rim,rim.ox,V.require('SilphElevator').offset(state.map),rim.oy),horizonVisible)
         end
-        Voxel3D.silphWindow(nil)
-        Voxel3D.drawTint()
-        Voxel3D.roomVisibility(roomView,true)
       elseif rim.class=='voxel_horizon'then
         outdoorHorizon.draw(rim,Mat4.translationFor(rim,rim.ox,0,rim.oy),horizonVisible)
       elseif rim.class=='room_breach_exterior' or rim.class=='room_breach_roof' then
@@ -3341,6 +3354,7 @@ renderWorld = function(state, w, h, vw, vh, paletteFor)
       if unmaskedCeiling then Voxel3D.roomVisibility(roomView,true) end
     end
   end
+  windowExterior(false)
   Voxel3D.towerBackdrop(false)
   setCutaway()
   Voxel3D.roomVisibility(roomView)
