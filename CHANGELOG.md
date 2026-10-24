@@ -1,3 +1,11 @@
+# 3.0.65-rc.4 — live lighting upload performance
+
+- On desktop, rotate three bounded packed-light upload images instead of overwriting the image sampled by the preceding GPU frame. Live colours/powers, resolution, scenery and windows remain unchanged.
+- Keep Android/iOS on their existing single-image upload path; GLES measurements did not validate a benefit from rotating samplers.
+- Release the full upload pool on layout changes and renderer reset.
+- Add a CPU retention/live-data regression contract and actual GPU colour-readback verification; see PERFORMANCE_QA.md for real Gen2/Android measurements and limits.
+- Retain RC3 sharpness preferences and the Universal RC2 gameplay/storage fixes. KASC remains 6.7.35-rc.2.
+
 ## 3.0.65-rc.3 — Universal sharpness and geometry follow-up (RC)
 
 - FULL preserves the selected T-SHIFT level instead of forcing maximum blur. For a sharp image, select T-SHIFT: OFF once; existing saved preferences are retained.

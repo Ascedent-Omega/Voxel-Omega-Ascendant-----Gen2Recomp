@@ -1,3 +1,11 @@
+# VASC 3.0.65-rc.4 — Universal performance RC
+
+Pair this ZIP with unchanged KASC 6.7.35-rc.2. The same VASC ZIP works in both supported Recomps.
+
+RC4 rotates three packed-light upload images on desktop to avoid overwriting data still sampled by the GPU. Android/iOS retain their established single-image path; the exploratory GLES rotation was not validated and is not shipped. Resolution, geometry, window visibility and live lamp colour/power stay unchanged.
+
+See PERFORMANCE_QA.md for measured FPS, frame-time tails, actual hardware/backend and remaining limitations. Emulator results do not establish performance on a physical phone or all Android GPUs. The earlier geometry/gameplay reports below keep their original version and scope.
+
 ## 3.0.65-rc.3 — Universal sharpness and geometry follow-up (RC)
 
 - FULL preserves the selected T-SHIFT level instead of forcing maximum blur. For a sharp image, select T-SHIFT: OFF once; existing saved preferences are retained.

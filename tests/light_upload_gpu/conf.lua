@@ -1,0 +1,1 @@
+function love.conf(t)t.identity="ascendant-light-upload-contract-20261024";t.window.width=128;t.window.height=128;t.window.vsync=0;t.modules.audio=false;t.modules.joystick=false;t.modules.physics=false end

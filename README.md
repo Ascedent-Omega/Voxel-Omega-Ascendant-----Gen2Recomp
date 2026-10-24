@@ -1,6 +1,6 @@
-> **Universal RC3:** [VASC 3.0.65-rc.3](https://github.com/Ascedent-Omega/Voxel-Omega-Ascendant-----Gen2Recomp/releases/tag/v3.0.65-rc.3) preserves your sharpness setting when selecting FULL. Pair it with [KASC 6.7.35-rc.2](https://github.com/Ascedent-Omega/Omega-Kanto-Ascendant----Gen2Recomp/releases/tag/v6.7.35-rc.2). Each ZIP works in both Recomps. See [installation](INSTALL.txt) and the [focused geometry test report](GEOMETRY_QA.md). Gen2 support remains an RC.
+> **Universal RC4:** [VASC 3.0.65-rc.4](https://github.com/Ascedent-Omega/Voxel-Omega-Ascendant-----Gen2Recomp/releases/tag/v3.0.65-rc.4) fixes desktop GPU stalls from animated light uploads. Pair it with [KASC 6.7.35-rc.2](https://github.com/Ascedent-Omega/Omega-Kanto-Ascendant----Gen2Recomp/releases/tag/v6.7.35-rc.2). Each ZIP works in both Recomps. See [installation](INSTALL.txt), [performance measurements and limits](PERFORMANCE_QA.md) and the [geometry report](GEOMETRY_QA.md). Gen2 support remains an RC.
 
-# Voxel Ascendant 3.0.65-rc.2 — Universal RC
+# Voxel Ascendant 3.0.65-rc.4 — Universal RC
 
 **The same ZIP works with Gen1Recomp and Gen2Recomp.** Install this package alongside [Kanto Ascendant 6.7.35-rc.2](https://github.com/Ascedent-Omega/Omega-Kanto-Ascendant----Gen2Recomp/releases/tag/v6.7.35-rc.2); update both mods together.
 

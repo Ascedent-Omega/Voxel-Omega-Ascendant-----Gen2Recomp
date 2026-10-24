@@ -5,6 +5,15 @@ local M={CELL=16,MAX_OVERLAP=4}
 local layout,key,colors,texture,indices,visibility,lastFrame,lastResult,lastReturned
 local previousSources,previousBlockers,previousWall,previousLimit
 local function release(x)if x and x.release then x:release()end end
+-- Animated lamps change the packed colour rows while the previous frame still
+-- samples them. Replacing one in-flight texture serializes CPU and GPU work.
+-- Rotate a bounded set of identical-size uploads; every frame still receives
+-- its exact live colour/power, including the first update after a layout change.
+local uploadSlots,uploadCursor={},0
+local function releaseUploads()
+ for _,slot in ipairs(uploadSlots)do release(slot)end
+ uploadSlots,uploadCursor={},0
+end
 local function sig(sources)
  local t={}
  for _,l in ipairs(sources)do
@@ -272,7 +281,7 @@ function M.prepare(frame,lights,blank)
   local ok,uploaded=pcall(image,data);data:release()
   if not ok then error(uploaded,0)end
   release(indices);indices=uploaded;layout=nextLayout
-  release(texture);texture=nil;colors=nil;key=nextKey
+  releaseUploads();texture=nil;colors=nil;key=nextKey
  end
  local colorKey={}
  for _,l in ipairs(sources)do
@@ -292,7 +301,16 @@ function M.prepare(frame,lights,blank)
    local n=l.normal;data:setPixel(3,i-1,n[1]*.5+.5,n[2]*.5+.5,n[3]*.5+.5,
     (not l.kind or l.kind=='window') and l.owner and l.owner.lo and 1 or 0)
   end
-  if texture then V.require("RasterResources").changing(texture);texture:replacePixels(data)else texture=image(data)end
+  -- The desktop GL path benefits from independent in-flight images. Keep
+  -- the established mobile upload path: GLES testing did not establish a
+  -- benefit from sampler rotation, so do not change it on Android/iOS.
+  local uploadCount=lights.mobile and 1 or 3
+  uploadCursor=uploadCursor%uploadCount+1
+  local slot=uploadSlots[uploadCursor]
+  if slot then
+   V.require("RasterResources").changing(slot);slot:replacePixels(data)
+  else slot=image(data);uploadSlots[uploadCursor]=slot end
+  texture=slot
   data:release();colors=colorKey
  end
  if not visibility then visibility=assert((loadstring or load)(assert(V.mod:read('lib/LightVisibility.lua')),'@grid/LightVisibility.lua'))(V)end
@@ -393,7 +411,7 @@ if V.require then M.GLSL=M.GLSL..V.require('StaticLightField').GLSL end
 function M.invalidate()
  V.require('StaticLightField').invalidate()
  M.cancelPending();previousMap=nil
- release(texture);release(indices);if visibility then visibility.invalidate()end
+ releaseUploads();release(indices);if visibility then visibility.invalidate()end
  layout,key,colors,texture,indices,lastFrame,lastResult,lastReturned=nil,nil,nil,nil,nil,nil,nil,nil
  previousSources,previousBlockers,previousWall,previousLimit=nil,nil,nil,nil
 end

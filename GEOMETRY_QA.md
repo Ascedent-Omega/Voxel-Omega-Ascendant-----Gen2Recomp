@@ -1,3 +1,5 @@
+> RC4 retains this RC3 geometry evidence under its original scope. The later upload-lifetime change and its additional checks are documented in PERFORMANCE_QA.md.
+
 # Universal RC3 geometry and sharpness verification — 2026-10-24
 
 Tested pair: **Voxel Ascendant 3.0.65-rc.3 + Kanto Ascendant 6.7.35-rc.2**, enabled together. Each mod has one Universal ZIP for both engines. KASC's RC2 ZIP is unchanged.

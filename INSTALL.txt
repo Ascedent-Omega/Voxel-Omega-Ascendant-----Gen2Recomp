@@ -1,4 +1,4 @@
-Voxel Ascendant 3.0.65-rc.3 — Universal RC
+Voxel Ascendant 3.0.65-rc.4 — Universal RC
 
 ## Installation
 
@@ -39,3 +39,5 @@ For a deliberate full-detail comparison, select DEVICE PROFILE: CUSTOM, SCENERY:
 Für eine vollständige Kulisse in den VASC-Optionen DEVICE PROFILE auf CUSTOM, SCENERY auf FULL und REAL WINDOWS auf ON stellen. Niedrige AUTO-Profile können SCENERY absichtlich auf OFF reduzieren. Gegen die starke Weichzeichnung einmal T-SHIFT auf OFF stellen; für volle Renderauflösung 3D RESOLUTION: NATIVE wählen. FULL behält die gewählte Unschärfestufe jetzt bei. Bereits gespeicherte Werte werden nicht automatisch zurückgesetzt.
 
 See GEOMETRY_QA.md for the actual four-environment test scope. Gen2 compatibility remains an RC; physical Android hardware was not tested.
+
+Performance: On desktop, RC4 rotates live lighting uploads to avoid GPU waits. FULL scenery, REAL WINDOWS ON and NATIVE remain explicit quality choices. See PERFORMANCE_QA.md for the exact test hardware, FPS/frame times and remaining limitations; this is not a 60-FPS guarantee for every Android phone.
