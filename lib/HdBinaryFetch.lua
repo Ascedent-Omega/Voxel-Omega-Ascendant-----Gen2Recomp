@@ -18,6 +18,16 @@ function M.new(mod)
   end
   local okPlatform, platform = pcall(function()return love.system.getOS()end)
   if not okPlatform or platform ~= "Windows" then return native end
+  local okThreads,threadApi=pcall(function()return love.thread end)
+  if not okThreads or not(threadApi and threadApi.newThread and threadApi.newChannel)then
+    local source=assert(mod:read('lib/HdFileFetch.lua'))
+    local files=assert((loadstring or load)(source,'@HdFileFetch'))().new(mod)
+    if files then return files end
+    -- A portable root cannot be mixed with the native pool's staging root.
+    return {available=function()return false end,capabilities=function()return {}end,
+      get=function()return nil,'transport_unavailable'end,poll=function()return {status='error',err='transport_unavailable'}end,
+      cancel=function()return false end,release=function()end,close=function()end}
+  end
   local source = assert(mod:read("lib/HdBinaryFetchWorker.lua"))
   local jobs, workers = {}, {}
   local closed = false
@@ -48,10 +58,10 @@ function M.new(mod)
     if closed then return nil, "HD transport closed" end
     if collect() >= 4 then return nil, "HD workers busy; retry shortly" end
     opts = type(opts) == "table" and opts or {}
-    local channel = love.thread.newChannel()
+    local channel = threadApi.newChannel()
     local job = {channel=channel, state={status="pending"}}
     local ok, err = pcall(function()
-      job.thread = love.thread.newThread(source)
+      job.thread = threadApi.newThread(source)
       job.thread:start(url, math.min(30, math.max(1, tonumber(opts.maxSeconds) or 30)), channel, math.min(4194304, tonumber(opts.maxBytes) or 4194304))
     end)
     if not ok then return nil, tostring(err) end

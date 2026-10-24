@@ -10,7 +10,7 @@
   "games": [
     "gen1"
   ],
-  "game_version": ">=0.8.45 <0.9.0",
+  "game_version": ">=0.3.96 <0.4.0 || >=0.8.45 <0.9.0",
   "priority": 100,
   "dependencies": [],
   "optional_dependencies": [
@@ -154,7 +154,7 @@
   ],
   "affects_link": false,
   "experimental": false,
-  "description": "Pokémon Red, Blue and Yellow in a full 3D voxel world: towns, routes, caves and interiors, weather and day/night, scenery, animated characters, overworld Pokémon and 3D battles. Gen 1 release for Gen2Recomp.",
+  "description": "Voxel Ascendant: universal release candidate for Red, Blue and Yellow on Gen1Recomp and Gen2Recomp.",
   "optional_imports": [
     {
       "id": "pokemon_pinball_rom",

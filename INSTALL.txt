@@ -1,0 +1,25 @@
+Voxel Ascendant 3.0.65-rc.1 — Universal RC
+
+## Installation
+
+1. Close the game. Back up `mods/VOXEL_ASCENDANT`, `mods/kanto_ascendant` and your saves.
+2. Download **both Universal ZIP assets** from the two RC release pages. Do not use GitHub's automatic **Source code (zip)** or **Source code (tar.gz)** downloads.
+3. Remove the old `VOXEL_ASCENDANT` and `kanto_ascendant` folders from the active engine's `mods/` directory. Remove duplicate older copies of these two mods from any other active mod location.
+4. Extract both ZIPs into that `mods/` directory. The resulting files must include:
+
+```text
+mods/
+  VOXEL_ASCENDANT/
+    manifest.json
+    main.lua
+  kanto_ascendant/
+    manifest.json
+    entry.lua
+```
+
+5. Keep existing saves, options and `mod_cache`. Enable both mods and start Red, Blue or Yellow. If you have both engines installed, install these **same two ZIPs** into each engine's own mod directory.
+
+## Installation auf Deutsch
+
+Spiel schliessen und beide bisherigen Modordner sowie Spielstaende sichern. Die **zwei Universal-ZIPs** von den RC-Releaseseiten laden, die alten Modordner aus dem aktiven `mods/`-Verzeichnis entfernen und beide ZIPs direkt dort entpacken. Keine zusaetzliche Ordnerebene anlegen. Spielstaende, Optionen und `mod_cache` behalten. Beide Mods aktivieren und Rot, Blau oder Gelb starten. Fuer beide Recomps gelten dieselben ZIPs; nur der Installationsordner ist jeweils der andere.
+

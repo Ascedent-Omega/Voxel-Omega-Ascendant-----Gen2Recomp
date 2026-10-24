@@ -1,10 +1,14 @@
-## Gen2Recomp startup transport fix (release candidate)
+## 3.0.65-rc.1 — one ZIP for both Recomps (RC)
 
-On engines without mod.fetch, the optional sprite downloader no longer aborts mod initialization. Downloads return a clear unavailable message, while bundled graphics and file imports remain available. Native Gen1 transports and the Windows binary worker retain their existing behavior.
+The Universal ZIP contains one shared current runtime for Gen1Recomp 0.3.96–0.3.x and Gen2Recomped 0.8.45–0.8.x. Red, Blue and Yellow are supported. Install the matching Universal RC of the companion mod as well.
 
-Distribution: retain the unchanged Gen1Recomp packages (VASC 3.0.63 / KASC 6.7.33), and provide separate Gen2Recomp candidates (VASC 3.0.65-rc.1 / KASC 6.7.35-rc.1). Gen2Recomp rejects the compute permission required by the Gen1 packages; one universal ZIP is not supported. Both Gen2 candidates are for Red, Blue and Yellow only.
+The missing optional download transport no longer aborts startup. Both manifests keep API 2 and use only permissions understood by both engines. Optional mod-created workers fall back safely; Windows binary downloads use the engine-owned file pool where native staging is compatible. Windows portable-mode optional downloads and Gen2Recomp optional downloads remain unavailable.
 
-Validation: the reported failure is reproduced by the actual Gen2Recomped 0.8.45 loader and removed by this patch. Both stable Gen1 packages load in Gen1Recomp 0.3.96. Offline transport tests cover Android, iOS, macOS, Linux and Windows simulations; existing Windows binary-streaming, bounds, timeout and cancellation tests pass. These checks do not constitute a full playthrough or a physical Android/iOS test.
+Use the Universal ZIP release assets, replace both old mod folders, and preserve saves, options and mod_cache. See README.md and INSTALL.txt for the complete English/German instructions. This is a release candidate, with physical Android/iOS and complete playthrough verification still pending.
+
+## Historical release notes
+
+The notes below describe earlier packages and do not expand the supported games or validation of this Universal RC.
 
 # ASC OMEGA Ver.1.6
 

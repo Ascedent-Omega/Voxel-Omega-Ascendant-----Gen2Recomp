@@ -1,51 +1,49 @@
-# Voxel Ascendant 3.0.65-rc.1
+# Voxel Ascendant 3.0.65-rc.1 — Universal RC
 
-## Engine-specific downloads
+**The same ZIP works with Gen1Recomp and Gen2Recomp.** Install this package alongside [Kanto Ascendant 6.7.35-rc.1](https://github.com/Ascedent-Omega/Omega-Kanto-Ascendant----Gen2Recomp/releases/tag/v6.7.35-rc.1); update both mods together.
 
-This Gen2Recomp package is a release candidate fixing the missing optional download transport at startup. For Gen1Recomp, use the unchanged stable Voxel Ascendant 3.0.63 package from the original Ascendant repository. Gen1Recomp and Gen2Recomp need separate manifests and downloads. Both Gen2 packages must be updated together. Android hardware verification is pending.
+This release candidate supports **Pokémon Red, Blue and Yellow**. It contains the current shared Kanto runtime and the fix for `SpriteMirrorFetch:9: missing transport dependency`. Gold, Silver and Crystal stay inactive in this RC. For those games, retain the previous Gen1Recomp release.
 
+## Supported engines
 
-**Pokémon Red, Blue and Yellow in a full 3D voxel world, for Gen2Recomp.**
+| Engine | Version range | Download |
+| --- | --- | --- |
+| Gen1Recomp | 0.3.96 to below 0.4.0 | The Universal ZIP below |
+| Gen2Recomp / Gen2Recomped | 0.8.45 to below 0.9.0 | The identical Universal ZIP |
 
-Voxel Ascendant (VASC) turns the Kanto of the Gen 1 games into a living voxel world: towns, routes, caves and interiors in 3D, with weather, day and night, scenery on the horizon, animated characters, Pokémon that walk the overworld and 3D battles. It is a mod for the **Gen2Recomp** engine (Gen2Recomped 0.8.45 or newer in the 0.8 line) and plays alongside its companion mod, **[Kanto Ascendant](https://github.com/Ascedent-Omega/Omega-Kanto-Ascendant----Gen2Recomp)**.
+There are no separate Gen1/Gen2 builds and no launcher modification is needed. Cartridge generation and engine name are different things: Red, Blue and Yellow are Gen 1 games in either engine.
 
-> This release is for **Red, Blue and Yellow only**. On Gold, Silver and Crystal the mod stays switched off and says so in the log. Gen 2 support will come later as a separate release.
+## Installation
 
-## What's in it
+1. Close the game. Back up `mods/VOXEL_ASCENDANT`, `mods/kanto_ascendant` and your saves.
+2. Download **both Universal ZIP assets** from the two RC release pages. Do not use GitHub's automatic **Source code (zip)** or **Source code (tar.gz)** downloads.
+3. Remove the old `VOXEL_ASCENDANT` and `kanto_ascendant` folders from the active engine's `mods/` directory. Remove duplicate older copies of these two mods from any other active mod location.
+4. Extract both ZIPs into that `mods/` directory. The resulting files must include:
 
-- **A 3D Kanto.** Every Gen 1 map is rebuilt as voxel geometry, with interiors, doors, roofs, water, caves and seasonal trees, while the game's own collision, events and warps stay in charge.
-- **Weather, sky and light.** Rain, snow and sun, a day/night sky, dynamic lights in windows and rooms, and scenery panoramas around the edges of each map.
-- **Characters and Pokémon in the world.** Voxel and Cobble character models, a follower Pokémon, wild Pokémon walking the routes (with Kanto Ascendant) and cinematic Fly and Surf scenes for each species.
-- **3D battles.** Battle arenas, the ORAS-style battle HUD and, if you import your own Pokémon Stadium cartridge, Stadium battle models.
-- **Device profiles.** One setting picks the right quality for your hardware: MINIMUM, LOW, MEDIUM, HIGH and ULTRA, plus AUTO (measures your PC or phone) and CUSTOM (any value you change yourself).
-- **Your Look.** A guided setup card to choose your character, the camera and the graphics level, with a live preview.
-- **Optional extras.** HD character and Pokémon packages, your own music and sprites, and the Game Corner pinball tables with your own Pokémon Pinball cartridge. No ROM is ever included.
+```text
+mods/
+  VOXEL_ASCENDANT/
+    manifest.json
+    main.lua
+  kanto_ascendant/
+    manifest.json
+    entry.lua
+```
 
-## New in 3.0.65-rc.1
+5. Keep existing saves, options and `mod_cache`. Enable both mods and start Red, Blue or Yellow. If you have both engines installed, install these **same two ZIPs** into each engine's own mod directory.
 
-- **Gen2Recomp support.** Runs on Gen2Recomped 0.8.45. The generation check now reads the cartridge itself, so Red, Blue and Yellow always start the Gen 1 runtime.
-- **Gen 1 only.** The Gold/Silver/Crystal runtime is not part of this package, which makes it about 40 MB smaller. The Stadium importer modules that Gen 1 battles use are kept.
-- **Device profiles reworked.** The Gen 1 profiles share one core with the rest of VASC: MINIMUM, LOW, MEDIUM, HIGH, ULTRA, AUTO and CUSTOM, with your old choice carried over. AUTO now measures the hardware before it picks.
-- **Your Look and menus.** Updated Your Look preview and effects, clearer profile help text and a reworked Errors menu.
-- **Characters.** Faster voxel character models, disguised NPCs (such as the Fuchsia ninjas) and NPCs with varied hair and outfit colours.
-- **Lighting and loading.** Improved window lights, loading companion and location banner, and more diagnostics for support reports.
+## Installation auf Deutsch
 
-See [CHANGELOG.md](CHANGELOG.md) for the full history.
+Spiel schliessen und beide bisherigen Modordner sowie Spielstaende sichern. Die **zwei Universal-ZIPs** von den RC-Releaseseiten laden, die alten Modordner aus dem aktiven `mods/`-Verzeichnis entfernen und beide ZIPs direkt dort entpacken. Keine zusaetzliche Ordnerebene anlegen. Spielstaende, Optionen und `mod_cache` behalten. Beide Mods aktivieren und Rot, Blau oder Gelb starten. Fuer beide Recomps gelten dieselben ZIPs; nur der Installationsordner ist jeweils der andere.
 
-## Install
+## RC status and limitations
 
-1. Install **Gen2Recomp** (Gen2Recomped 0.8.45) and import your own Red, Blue or Yellow cartridge in its launcher.
-2. Close the game. If you already have Voxel Ascendant, keep a copy of your `mods/VOXEL_ASCENDANT` folder.
-3. Download `Voxel-Ascendant-3.0.65-rc.1.zip` from the [release page](../../releases), delete the old `mods/VOXEL_ASCENDANT` folder and unzip the new one into `mods/`. You should end up with `mods/VOXEL_ASCENDANT/main.lua`.
-4. Install **Kanto Ascendant 6.7.34** the same way. Update both mods together.
-5. Start the game. Your saves and settings are kept.
-
-## Known limitations
-
-- Tested on Windows PC with Pokémon Yellow. **Android has not been tested on a real phone yet.**
-- HD downloads and HD package imports have not been tested on Gen2Recomp yet. Without them the mod uses its built-in characters and Pokémon sprites.
-- Weather music falls back to the normal map music on this engine.
-- Starting the game takes about 10 seconds on a fast PC, and a map change can stall for a moment while it is built for the first time.
+- Native loader checks use the exact Gen1Recomp 0.3.96 and Gen2Recomped 0.8.45 releases under macOS. Automated tests also cover the missing transport and Windows binary-download fallback.
+- No full playthrough and no physical Android/iOS test has been completed for this RC.
+- Gen2Recomp does not expose the optional mod download transport. In-game sprite downloads stay unavailable; bundled graphics remain usable.
+- Gen1Recomp keeps its native transport. On Windows without mod-thread permission, binary content uses the engine-owned file-download pool. Windows **portable mode** cannot safely share that pool's native staging root, so optional downloads are unavailable there in this RC.
+- Optional geometry/image/light-cache workers use their existing fallback when a host does not expose worker access. The manifest retains mod API 2 and declares only permissions understood by both engines.
+- To roll back, close the game and restore the two previous mod folders. Restore your backed-up saves as well if you want to return to their exact earlier state.
 
 ## Credits
 
