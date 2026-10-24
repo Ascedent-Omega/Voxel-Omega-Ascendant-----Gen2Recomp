@@ -1,4 +1,4 @@
-Voxel Ascendant 3.0.65-rc.1 — Universal RC
+Voxel Ascendant 3.0.65-rc.2 — Universal RC
 
 ## Installation
 
@@ -17,9 +17,10 @@ mods/
     entry.lua
 ```
 
-5. Keep existing saves, options and `mod_cache`. Enable both mods and start Red, Blue or Yellow. If you have both engines installed, install these **same two ZIPs** into each engine's own mod directory.
+5. Disable other graphics/gameplay mods for the initial compatibility check, including the bundled **Gen2Recomped-DramaticShapes** mod in Gen2Recomp. It conflicts with VASC/KASC.
+6. Keep existing saves, options and `mod_cache`. Enable both mods and start Red, Blue or Yellow. If you have both engines installed, install these **same two ZIPs** into each engine's own mod directory.
 
 ## Installation auf Deutsch
 
-Spiel schliessen und beide bisherigen Modordner sowie Spielstaende sichern. Die **zwei Universal-ZIPs** von den RC-Releaseseiten laden, die alten Modordner aus dem aktiven `mods/`-Verzeichnis entfernen und beide ZIPs direkt dort entpacken. Keine zusaetzliche Ordnerebene anlegen. Spielstaende, Optionen und `mod_cache` behalten. Beide Mods aktivieren und Rot, Blau oder Gelb starten. Fuer beide Recomps gelten dieselben ZIPs; nur der Installationsordner ist jeweils der andere.
+Spiel schliessen und beide bisherigen Modordner sowie Spielstaende sichern. Die **zwei Universal-ZIPs** von den RC-Releaseseiten laden, die alten Modordner aus dem aktiven `mods/`-Verzeichnis entfernen und beide ZIPs direkt dort entpacken. Keine zusaetzliche Ordnerebene anlegen. Spielstaende, Optionen und `mod_cache` behalten. Andere Grafik-/Gameplay-Mods beim ersten Test deaktivieren, insbesondere den mitgelieferten **Gen2Recomped-DramaticShapes**-Mod. Er kollidiert mit VASC/KASC. Danach beide Ascendant-Mods aktivieren und Rot, Blau oder Gelb starten. Fuer beide Recomps gelten dieselben ZIPs; nur der Installationsordner ist jeweils der andere.
 

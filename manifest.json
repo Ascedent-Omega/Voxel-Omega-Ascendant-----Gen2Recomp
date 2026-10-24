@@ -1,7 +1,7 @@
 {
   "id": "VOXEL_ASCENDANT",
   "name": "Voxel Ascendant",
-  "version": "3.0.65-rc.1",
+  "version": "3.0.65-rc.2",
   "github": "Ascedent-Omega/Voxel-Omega-Ascendant-----Gen2Recomp",
   "api": 2,
   "entry": "main.lua",

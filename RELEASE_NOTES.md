@@ -1,3 +1,11 @@
+## 3.0.65-rc.2 — gameplay follow-up (RC)
+
+The same two Universal ZIPs remain the installation for both Recomps. Update both mods together.
+
+KASC now adapts Gen2Recomp 0.8.x's mod-wide record storage to a separate persistent Legacy namespace for each genuine New Game. Saving/loading no longer misclassifies a new Gen2 campaign as an unmigrated pre-sandbox archive. Eligible RC1 first campaigns are adopted only when their New Game receipt is valid and no existing Legacy lineage, binding or old archive is present. Existing Legacy history is never silently replaced. Gen1Recomp keeps its native storage API.
+
+The installation instructions now call out the bundled Gen2Recomped-DramaticShapes conflict. See GAMEPLAY_QA.md for the completed gameplay checks and their limits. This remains a prerelease; an Android emulator does not establish compatibility with every physical phone.
+
 ## 3.0.65-rc.1 — one ZIP for both Recomps (RC)
 
 The Universal ZIP contains one shared current runtime for Gen1Recomp 0.3.96–0.3.x and Gen2Recomped 0.8.45–0.8.x. Red, Blue and Yellow are supported. Install the matching Universal RC of the companion mod as well.

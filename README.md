@@ -1,6 +1,6 @@
-# Voxel Ascendant 3.0.65-rc.1 — Universal RC
+# Voxel Ascendant 3.0.65-rc.2 — Universal RC
 
-**The same ZIP works with Gen1Recomp and Gen2Recomp.** Install this package alongside [Kanto Ascendant 6.7.35-rc.1](https://github.com/Ascedent-Omega/Omega-Kanto-Ascendant----Gen2Recomp/releases/tag/v6.7.35-rc.1); update both mods together.
+**The same ZIP works with Gen1Recomp and Gen2Recomp.** Install this package alongside [Kanto Ascendant 6.7.35-rc.2](https://github.com/Ascedent-Omega/Omega-Kanto-Ascendant----Gen2Recomp/releases/tag/v6.7.35-rc.2); update both mods together.
 
 This release candidate supports **Pokémon Red, Blue and Yellow**. It contains the current shared Kanto runtime and the fix for `SpriteMirrorFetch:9: missing transport dependency`. Gold, Silver and Crystal stay inactive in this RC. For those games, retain the previous Gen1Recomp release.
 
@@ -30,15 +30,16 @@ mods/
     entry.lua
 ```
 
-5. Keep existing saves, options and `mod_cache`. Enable both mods and start Red, Blue or Yellow. If you have both engines installed, install these **same two ZIPs** into each engine's own mod directory.
+5. Disable other graphics/gameplay mods for the initial compatibility check, including the bundled **Gen2Recomped-DramaticShapes** mod in Gen2Recomp. It conflicts with VASC/KASC.
+6. Keep existing saves, options and `mod_cache`. Enable both mods and start Red, Blue or Yellow. If you have both engines installed, install these **same two ZIPs** into each engine's own mod directory.
 
 ## Installation auf Deutsch
 
-Spiel schliessen und beide bisherigen Modordner sowie Spielstaende sichern. Die **zwei Universal-ZIPs** von den RC-Releaseseiten laden, die alten Modordner aus dem aktiven `mods/`-Verzeichnis entfernen und beide ZIPs direkt dort entpacken. Keine zusaetzliche Ordnerebene anlegen. Spielstaende, Optionen und `mod_cache` behalten. Beide Mods aktivieren und Rot, Blau oder Gelb starten. Fuer beide Recomps gelten dieselben ZIPs; nur der Installationsordner ist jeweils der andere.
+Spiel schliessen und beide bisherigen Modordner sowie Spielstaende sichern. Die **zwei Universal-ZIPs** von den RC-Releaseseiten laden, die alten Modordner aus dem aktiven `mods/`-Verzeichnis entfernen und beide ZIPs direkt dort entpacken. Keine zusaetzliche Ordnerebene anlegen. Spielstaende, Optionen und `mod_cache` behalten. Andere Grafik-/Gameplay-Mods beim ersten Test deaktivieren, insbesondere den mitgelieferten **Gen2Recomped-DramaticShapes**-Mod. Er kollidiert mit VASC/KASC. Danach beide Ascendant-Mods aktivieren und Rot, Blau oder Gelb starten. Fuer beide Recomps gelten dieselben ZIPs; nur der Installationsordner ist jeweils der andere.
 
 ## RC status and limitations
 
-- Native loader checks use the exact Gen1Recomp 0.3.96 and Gen2Recomped 0.8.45 releases under macOS. Automated tests also cover the missing transport and Windows binary-download fallback.
+- See GAMEPLAY_QA.md for the exact tested game, engines, scenarios and platform limits. Transport and Windows file-download regression tests are also included.
 - No full playthrough and no physical Android/iOS test has been completed for this RC.
 - Gen2Recomp does not expose the optional mod download transport. In-game sprite downloads stay unavailable; bundled graphics remain usable.
 - Gen1Recomp keeps its native transport. On Windows without mod-thread permission, binary content uses the engine-owned file-download pool. Windows **portable mode** cannot safely share that pool's native staging root, so optional downloads are unavailable there in this RC.
