@@ -3,7 +3,21 @@
 local M={}
 function M.new()
  local shaders=setmetatable({},{__mode="k"})
+ local available=setmetatable({},{__mode="k"})
  local C={}
+ -- Uniform availability belongs to the compiled program, not the scene.
+ -- Values are deliberately sent each time: other passes may change them.
+ function C.optional(sh,name,...)
+  local slots=available[sh]
+  if not slots then slots={};available[sh]=slots end
+  local exists=slots[name]
+  if exists==nil and type(sh.hasUniform)=="function" then
+   local ok,value=pcall(sh.hasUniform,sh,name)
+   if ok then exists=value==true;slots[name]=exists end
+  end
+  if exists==false then return false,false end
+  return pcall(sh.send,sh,name,...)
+ end
  function C.clear()shaders=setmetatable({},{__mode="k"})end
  function C.send(sh,name,value,layout)
   local slots=shaders[sh]

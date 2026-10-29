@@ -2313,7 +2313,7 @@ function Voxel3D.beginScene(w, h, cx, cy, vw, vh, sky, slot, skyContext)
   if not MOBILE_RUNTIME then pcall(sh.send,sh,"localActorOn",0) end
   pcall(sh.send, sh, "modelGrassCount", 0)
   pcall(sh.send, sh, "towerBackdrop", 0)
-  pcall(sh.send, sh, "towerMood", skyContext and skyContext.towerMood or {0,0})
+  drawUniforms.optional(sh, "towerMood", skyContext and skyContext.towerMood or {0,0})
   pcall(sh.send, sh, "caveBattleMist", skyContext and skyContext.caveBattleMist or {0,0,0,0})
   if MOBILE_RUNTIME then
     pcall(sh.send, sh, "ghost", 0)
@@ -2384,10 +2384,10 @@ function Voxel3D.beginScene(w, h, cx, cy, vw, vh, sky, slot, skyContext)
   Voxel3D.weatherAmount = math.max(0, math.min(1,
     tonumber(skyContext and skyContext.groundAmount) or 1))
   pcall(sh.send, sh, "scenerySnow", 0)
-  pcall(sh.send, sh, "weatherGround", 0)
-  pcall(sh.send, sh, "weatherGrass", 0)
-  pcall(sh.send, sh, "weatherAmount", Voxel3D.weatherAmount)
-  pcall(sh.send, sh, "weatherTime", Sky.clock or 0)
+  drawUniforms.optional(sh, "weatherGround", 0)
+  drawUniforms.optional(sh, "weatherGrass", 0)
+  drawUniforms.optional(sh, "weatherAmount", Voxel3D.weatherAmount)
+  drawUniforms.optional(sh, "weatherTime", Sky.clock or 0)
   end -- desktop-only sun/weather uniform batch
   pcall(sh.send, sh, "scenerySnow", 0)
   -- the window glass: the tileset's mask (or the blank -- the sampler is

@@ -333,6 +333,19 @@ local function storageFilesystem()
     storageContext = ok and type(value) == "table" and value or nil
   end
   scopedFilesystem = {
+    -- A facade may resolve a different playthrough without changing identity.
+    -- Probe its public context rather than sharing receipts across owners.
+    recoveryReceiptScope=function()
+      local context = invoke("context")
+      if type(context) ~= "table" then return nil end
+      local parts = {}
+      for _, key in ipairs({"modId", "root", "gameVersion", "playthroughId"}) do
+        local value = context[key]
+        if type(value) ~= "string" or value == "" then return nil end
+        parts[#parts + 1] = #value .. ":" .. value
+      end
+      return table.concat(parts, "|")
+    end,
     createDirectory=function() return true end,
     getDirectoryItems=function(path)
       if path ~= Diagnostics.DIRECTORY then return {} end
@@ -1388,6 +1401,12 @@ for index, key in ipairs(RECOVERY_MARKER_KEYS) do
   Diagnostics.MOBILE_RECOVERY_FIELDS[index] = key
 end
 local loadedRecoveryMarkerPath = nil
+-- Only suppress a byte-identical state already committed by this backend.
+-- A changed/failed write, read or clear invalidates the receipt before I/O.
+local committedRecoveryPayload, committedRecoveryFilesystem, committedRecoveryWriter, committedRecoveryScope
+local function invalidateRecoveryReceipt()
+  committedRecoveryPayload, committedRecoveryFilesystem, committedRecoveryWriter, committedRecoveryScope = nil, nil, nil, nil
+end
 
 local function recoveryClean(value, key)
   value = clean(value):gsub("=", ":")
@@ -1436,6 +1455,7 @@ local function readRecoveryFile(filesystem, path, strict)
 end
 
 function Diagnostics.readMobileRecoveryMarker()
+  invalidateRecoveryReceipt()
   -- Crash-loop recovery is a mobile contract, never a desktop renderer latch.
   local platform = runtimeOS()
   if platform ~= "iOS" and platform ~= "Android" then
@@ -1487,11 +1507,23 @@ function Diagnostics.writeMobileRecoveryMarker(fields)
   if #payload > Diagnostics.MOBILE_RECOVERY_MAX_BYTES then
     return false, "recovery-marker-too-large"
   end
+  local scope = filesystem
+  if type(filesystem.recoveryReceiptScope) == "function" then
+    local ok, value = pcall(filesystem.recoveryReceiptScope)
+    scope = ok and value or nil
+  end
+  if scope ~= nil and committedRecoveryScope == scope
+      and committedRecoveryFilesystem == filesystem
+      and committedRecoveryWriter == filesystem.write
+      and committedRecoveryPayload == payload then return true, nil end
+  invalidateRecoveryReceipt()
   local ok, result = pcall(filesystem.write,
     Diagnostics.MOBILE_RECOVERY_MARKER, payload)
   if not ok then return false, tostring(result) end
   if result ~= false then
     loadedRecoveryMarkerPath = Diagnostics.MOBILE_RECOVERY_MARKER
+    committedRecoveryPayload, committedRecoveryFilesystem, committedRecoveryWriter, committedRecoveryScope =
+      payload, filesystem, filesystem.write, scope
   end
   return result ~= false, nil
 end
@@ -1503,6 +1535,7 @@ local function recoveryFilePresent(filesystem, path)
 end
 
 function Diagnostics.clearMobileRecoveryMarker()
+  invalidateRecoveryReceipt()
   local filesystem = fs()
   if not (filesystem and type(filesystem.remove) == "function") then
     return false, "filesystem-remove-unavailable"

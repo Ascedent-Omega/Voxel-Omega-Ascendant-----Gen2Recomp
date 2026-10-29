@@ -144,12 +144,21 @@ for _,id in ipairs({'OAKS_LAB','GAME_CORNER','CELADON_MART_1F','CELADON_MART_2F'
 end
 -- Native north-edge warps stay visible through the decorative backing,
 -- including the story-critical breach in Cerulean's trashed house.
-function M.profileFor(map)
-  local d=map and map.def
+local function matchingProfile(map,d)
   if not d then return nil end
   local p=M.profiles[tostring(map.id or d.id or '')]
   if p and (not p.owner or d.kaOwner==p.owner)and d.tileset==p.tileset and d.width==p.width and d.height==p.height
-      and next(d.connections or {})==nil then
+      and (not d.connections or next(d.connections)==nil) then return p end
+end
+
+-- Classification needs only admission. Generating mutable doorway records
+-- here made every class query allocate a complete room profile.
+function M.matches(map) return matchingProfile(map,map and map.def)~=nil end
+
+function M.profileFor(map)
+  local d=map and map.def
+  local p=matchingProfile(map,d)
+  if p then
     local doors,openCells={},{}
     for _,warp in ipairs(d.warps or {}) do
       if warp.y==0 and type(warp.x)=='number' and warp.x>=0 and warp.x<d.width*2 then

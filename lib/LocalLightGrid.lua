@@ -269,11 +269,33 @@ function M.prepare(frame,lights,blank)
   -- in every pending frame otherwise creates more GC work than it saves.
   if reused then sources=orderedSources(M.sources(frame.allLights))end
  else M.cancelPending()end
- previousSources={};previousBlockers={}
- local function copy(v)return v and {v[1],v[2],v[3]}end
- for i,l in ipairs(frame.allLights)do previousSources[i]={kind=l.kind,geometryKey=l.geometryKey,x=l.x,y=l.y,z=l.z,radius=l.radius,power=l.power,
-  normal=copy(l.normal),color=copy(l.color),owner={lo=copy(l.owner.lo),hi=copy(l.owner.hi)}}end
- for i,b in ipairs(frame.allBlockers or frame.blockers)do previousBlockers[i]={lo=copy(b.lo),hi=copy(b.hi)}end
+ -- These comparison receipts are private and never returned to a draw.
+ -- Retain their storage when animated power/colour changes; copying every
+ -- light and blocker into new nested tables created garbage each frame.
+ previousSources=previousSources or{};previousBlockers=previousBlockers or{}
+ local function copy(v,out)
+  if not v then return v end
+  out=type(out)=='table'and out or{}
+  out[1],out[2],out[3]=v[1],v[2],v[3]
+  return out
+ end
+ local count=0
+ for i,l in ipairs(frame.allLights)do
+  local p=previousSources[i]
+  if not p then p={owner={}};previousSources[i]=p end
+  p.kind,p.geometryKey,p.x,p.y,p.z,p.radius,p.power=l.kind,l.geometryKey,l.x,l.y,l.z,l.radius,l.power
+  p.normal,p.color=copy(l.normal,p.normal),copy(l.color,p.color)
+  p.owner.lo,p.owner.hi=copy(l.owner.lo,p.owner.lo),copy(l.owner.hi,p.owner.hi)
+  count=i
+ end
+ for i=count+1,#previousSources do previousSources[i]=nil end
+ count=0
+ for i,b in ipairs(frame.allBlockers or frame.blockers)do
+  local p=previousBlockers[i]
+  if not p then p={};previousBlockers[i]=p end
+  p.lo,p.hi=copy(b.lo,p.lo),copy(b.hi,p.hi);count=i
+ end
+ for i=count+1,#previousBlockers do previousBlockers[i]=nil end
  previousWall=frame.wall;previousLimit=limit
  if nextKey~=key then
   local data=assert(nextData)

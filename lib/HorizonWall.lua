@@ -1913,7 +1913,7 @@ function HorizonWall.classFor(map)
   end
   if CAVE_TILESETS[tileset] then return "cave" end
   if def.runtimeAuthority=='KASC_6_7_STARTER_HABITAT_V2_3'and V.require('KascHabitatScenery').profile(map)=='FIRE'then return 'cave'end
-  if not isOutdoor(def) and nativeInteriorProfile(map) then
+  if not isOutdoor(def) and InteriorPanoramas.matches(map) then
     return "interior"
   end
   local profile = HorizonWall.profileFor(map)
